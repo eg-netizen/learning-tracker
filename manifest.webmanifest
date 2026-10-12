@@ -1,0 +1,10 @@
+{
+ "name": "Maths Tracker",
+ "short_name": "Maths",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "orientation": "any",
+ "background_color": "#fff4dc",
+ "theme_color": "#7a3ff0"
+}
