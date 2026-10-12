@@ -1,1 +1,907 @@
-const KEY="mm3_overrides_v1",CKEY="mm3_conquered_v1",MKEY="mm3_mode_v1";let overrides={};try{overrides=JSON.parse(localStorage.getItem(KEY)||"{}")}catch(e){overrides={}}function save(){try{localStorage.setItem(KEY,JSON.stringify(overrides))}catch(e){}}let conq=new Set;try{conq=new Set(JSON.parse(localStorage.getItem(CKEY)||"[]"))}catch(e){conq=new Set}function saveConq(){try{localStorage.setItem(CKEY,JSON.stringify([...conq]))}catch(e){}}let mode="parent";try{mode="kid"===localStorage.getItem(MKEY)?"kid":"parent"}catch(e){}function saveMode(){try{localStorage.setItem(MKEY,mode)}catch(e){}}const qid=e=>e.a+"-"+e.t+"-"+e.p+"-"+e.q,res=e=>overrides[qid(e)]||e.r,isTodo=e=>"Wrong"===res(e)||"Blank"===res(e),esc=e=>String(null==e?"":e).replace(/[&<>"]/g,e=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[e])),pct=(e,t)=>t?Math.round(100*e/t):0,attempts=[...new Set(DATA.map(e=>e.a))].sort((e,t)=>e-t),skills=[...new Set(DATA.map(e=>e.s))].sort(),sections=[...new Set(DATA.map(e=>e.t+" "+e.p))],KS={"Place value & words":["🧙","Place Value Wizard"],"Number operations":["🥷","Number Ninja"],"Brackets & order":["🧠","Brackets Boss"],"Missing numbers":["🔍","Mystery Number Hunter"],"Units & measures":["📏","Measuring Master"],Money:["💰","Money Master"],Time:["⏰","Time Traveller"],Fractions:["🍕","Fraction Hero"],Rounding:["🏁","Rounding Racer"],Other:["🎁","Bonus Challenges"]},kname=e=>KS[e]||["🎁",e];let tab="overview",hideAns=!1;const revealed=new Set;let F={a:"all",r:"all",s:"all",sec:"all"},K={f:"todo",s:"all"};const hints=new Set,shown=new Set;function mins(e){const t=ATT[e];if(!t||!t.start||!t.end)return null;const s=e=>{const[t,s]=e.split(":").map(Number);return 60*t+s};let n=s(t.end)-s(t.start);return n<0&&(n+=720),n}function tally(e){const t={Correct:0,Wrong:0,Blank:0,n:e.length};return e.forEach(e=>{t[res(e)]++}),t}function topbar(){return'<div class="topbar"><button class="modebtn" data-mode="1">'+("kid"===mode?"👤 Grown-up mode":"🎮 Kid mode")+"</button></div>"}function overview(){let e=topbar()+'<h1>Maths tracker</h1><p class="sub">Schofield &amp; Sims Mental Arithmetic 3 &middot; timed attempts</p>',t=null;attempts.forEach(s=>{const n=tally(DATA.filter(e=>e.a===s)),a=pct(n.Correct,n.n),o=mins(s),r=null!=o?Math.round(60*o/n.n):null;let i="";if(null!==t){const e=a-t;i='<span class="'+(e>=0?"up":"down")+'">'+(e>=0?"+":"")+e+' pts</span> <span class="muted small">vs previous</span>'}t=a,e+='<div class="card"><div class="row"><div><span class="pill">Attempt '+s+'</span> <span class="small muted">'+esc((ATT[s]||{}).label||"")+"</span></div><div>"+i+'</div></div><div class="row" style="margin-top:8px"><div class="big">'+a+'%</div><div class="muted">'+n.Correct+" of "+n.n+' correct</div></div><div class="bar"><i class="seg-ok" style="width:'+pct(n.Correct,n.n)+'%"></i><i class="seg-bad" style="width:'+pct(n.Wrong,n.n)+'%"></i><i class="seg-blank" style="width:'+pct(n.Blank,n.n)+'%"></i></div><div class="legend"><span><i class="dot seg-ok"></i>'+n.Correct+' correct</span><span><i class="dot seg-bad"></i>'+n.Wrong+' wrong</span><span><i class="dot seg-blank"></i>'+n.Blank+' blank</span></div><div class="stats"><div class="stat"><span class="small muted">Time</span><b>'+(null!=o?o+" min":"&ndash;")+'</b></div><div class="stat"><span class="small muted">Per question</span><b>'+(null!=r?r+" s":"&ndash;")+'</b></div><div class="stat"><span class="small muted">Questions</span><b>'+n.n+'</b></div></div><div class="foot" style="margin-top:12px"><button data-go="a" data-v="'+s+'" data-r="Wrong,Blank">Review mistakes</button></div></div>'});const s=skills.map(e=>{const t=tally(DATA.filter(t=>t.s===e));return{s:e,lost:t.Wrong+t.Blank,n:t.n}}).filter(e=>e.lost>0).sort((e,t)=>t.lost-e.lost).slice(0,4);e+='<h2>Where marks were lost</h2><div class="card">',s.forEach(t=>{e+='<button class="skill" style="margin:0 0 8px;border:0;padding:6px 0;border-bottom:1px solid var(--line);border-radius:0" data-go="s" data-v="'+esc(t.s)+'" data-r="Wrong,Blank"><div class="row"><b>'+esc(t.s)+'</b><span class="muted">'+t.lost+" of "+t.n+" lost</span></div></button>"});const n=DATA.filter(isTodo),a=n.filter(e=>conq.has(qid(e))).length;return e+='</div><p class="small muted">Tap any item to see those questions. Blank = skipped (she circles these).</p>',e+='<p class="small muted">Her practice progress (Kid mode): '+a+" of "+n.length+" missions conquered.</p>",e}function filtered(){return DATA.filter(e=>("all"===F.a||String(e.a)===String(F.a))&&(("all"===F.s||e.s===F.s)&&(("all"===F.sec||e.t+" "+e.p===F.sec)&&!("all"!==F.r&&!F.r.split(",").includes(res(e))))))}function chip(e,t,s){return'<button class="chip'+(String(F[e])===String(t)?" on":"")+'" data-f="'+e+'" data-v="'+esc(t)+'">'+s+"</button>"}function questions(){const e=filtered();let t=topbar()+'<div class="filters">';t+='<div class="chips">'+chip("a","all","All attempts")+attempts.map(e=>chip("a",e,"Attempt "+e)).join("")+"</div>",t+='<div class="chips">'+chip("r","all","All")+chip("r","Correct","Correct")+chip("r","Wrong","Wrong")+chip("r","Blank","Blank")+chip("r","Wrong,Blank","Needs review")+"</div>",t+='<div class="sel"><select data-sel="sec"><option value="all">All sections</option>'+sections.map(e=>"<option"+(F.sec===e?" selected":"")+">"+e+"</option>").join("")+"</select>",t+='<select data-sel="s"><option value="all">All skills</option>'+skills.map(e=>"<option"+(F.s===e?" selected":"")+">"+esc(e)+"</option>").join("")+"</select></div>";const s=tally(e);return t+='<div class="count"><span>Showing '+e.length+" of "+DATA.length+(e.length?" &middot; "+pct(s.Correct,s.n)+"% correct":"")+'</span><span><button class="link" data-hide="1">Hide answers: '+(hideAns?"on":"off")+'</button> &nbsp; <button class="link" data-clear="1">Clear filters</button></span></div></div>',e.length||(t+='<div class="empty">No questions match these filters.</div>'),e.forEach(e=>{const s=res(e),n=qid(e),a=hideAns&&!revealed.has(n),o=(overrides[n]?'<span class="edited">edited</span>':"")+(conq.has(n)?'<span class="edited">practised ✓</span>':"");t+='<div class="q '+s+'" data-id="'+n+'"><div class="top"><span class="tag">A'+e.a+" &middot; "+e.t+" "+e.p+" &middot; Q"+e.q+" &middot; "+esc(e.s)+'</span><span><span class="badge '+s+'">'+s+"</span>"+o+"</span></div>"+(e.k?'<div class="qtext">'+esc(e.k)+"</div>":"")+(e.img?'<div class="qimg">'+e.img+"</div>":"")+'<div class="ans"><div><span>Her answer</span>'+(e.h?esc(e.h):"&mdash; blank")+"</div><div><span>Correct</span>"+(a?'<button class="reveal" data-reveal="'+n+'">Tap to reveal</button>':esc(e.c))+"</div></div>"+(e.n&&!a?'<div class="note">'+esc(e.n)+"</div>":"")+(e.wp&&!a?'<div class="tip what"><b>What she did and why it was not quite right</b>'+e.wp.split("\n").map(e=>"<div>"+esc(e)+"</div>").join("")+"</div>":"")+(e.m&&!a?'<div class="tip"><b>How to work it out</b>'+e.m.split("\n").map(e=>"<div>"+esc(e)+"</div>").join("")+"</div>":"")+'<div class="edit">'+["Correct","Wrong","Blank"].map(e=>'<button class="'+(s===e?"cur":"")+'" data-set="'+e+'" data-id="'+n+'">'+e+"</button>").join("")+"</div></div>"}),t+='<div class="foot"><button data-export="1">Export CSV</button><button data-reset="1">Reset my edits</button></div>',t+='<div class="foot" style="margin-top:8px"><button data-resetkid="1">Reset her Kid-mode progress</button></div>',t+='<p class="small muted">Tap a question to change its result. Edits stay on this device only.</p>',t}function skillsView(){let e=topbar()+'<h1>Skills</h1><p class="sub">Accuracy by topic. Tap one to see its questions.</p>';return skills.forEach(t=>{const s=DATA.filter(e=>e.s===t),n=tally(s),a=pct(n.Correct,n.n),o=a>=75?"var(--ok)":a>=50?"var(--blank)":"var(--bad)",r=attempts.map(e=>{const t=s.filter(t=>t.a===e);if(!t.length)return"";const n=tally(t);return'<span class="pill">A'+e+" "+pct(n.Correct,n.n)+"%</span>"}).join(" ");e+='<button class="skill" data-go="s" data-v="'+esc(t)+'" data-r="all"><div class="row"><b>'+esc(t)+'</b><b style="color:'+o+'">'+a+'%</b></div><div class="meter"><i style="width:'+a+"%;background:"+o+'"></i></div><div class="row small muted"><span>'+n.Correct+" of "+n.n+" correct"+(n.Blank?" &middot; "+n.Blank+" blank":"")+"</span><span>"+r+"</span></div></button>"}),e}function skillStats(){return skills.map(e=>{const t=tally(DATA.filter(t=>t.s===e));return{s:e,n:t.n,ok:t.Correct,p:pct(t.Correct,t.n),lost:t.Wrong+t.Blank}})}function kidOverview(){const e=DATA.filter(isTodo),t=e.length,s=e.filter(e=>conq.has(qid(e))).length,n=t&&s>=t?4:t?Math.floor(4*s/t):0,a=t?0===s?"Your first mission is waiting!":s<t?t-s+" to go - you've got this!":"Every mission conquered! You're a legend!":"No missions right now - amazing! 🎉";let o=topbar()+'<h1>Hi superstar! 🌟</h1><p class="sub">Ready to beat your best?</p>';o+='<div class="kcard hero"><div class="row"><span class="lvl">'+["Maths Explorer 🧭","Number Ninja 🥷","Brain Booster 🧠","Maths Wizard 🧙","Maths Legend 🏆"][n]+"</span><span>⭐ "+s+'</span></div><div class="kbig">'+s+" <small>of "+t+'</small></div><div>missions conquered</div><div class="kprog"><i style="width:'+pct(s,t)+'%"></i></div><p class="kmsg">'+a+"</p>"+(s<t?'<button class="kbtn" data-kgo="todo">🚀 Start a mission</button>':'<button class="kbtn" data-kgo="done">🏆 See my trophies</button>')+"</div>",o+="<h2>My rounds</h2>";let r=null;attempts.forEach(e=>{const t=tally(DATA.filter(t=>t.a===e)),s=pct(t.Correct,t.n),n=mins(e),a=null!=n?Math.round(60*n/t.n):null,i=Math.max(1,Math.round(s/20));let l="";null!==r&&(l=s>r?"📈 Up "+(s-r)+"% since last round!":"💪 Keep practising - every round makes you stronger!"),r=s,o+='<div class="kcard"><div class="row"><b>Round '+e+'</b><span class="small muted">'+esc((ATT[e]||{}).label||"")+'</span></div><div class="kmid">'+t.Correct+" right out of "+t.n+'!</div><div class="stars">'+"⭐".repeat(i)+'<span class="dim">'+"⭐".repeat(5-i)+"</span></div>"+(null!=a?'<div class="small">⏱️ About '+a+" seconds per question</div>":"")+(l?'<div class="small" style="margin-top:4px">'+l+"</div>":"")+"</div>"});const i=skillStats(),l=i.filter(e=>e.n>=2&&e.p>=60).sort((e,t)=>t.p-e.p||t.n-e.n).slice(0,3),c=i.filter(e=>e.lost>0).sort((e,t)=>t.lost-e.lost).slice(0,2);return l.length&&(o+='<h2>⚡ My best superpowers</h2><div class="kchips">'+l.map(e=>'<button class="kchip" data-ks="'+esc(e.s)+'" data-kf="all">'+kname(e.s)[0]+" "+esc(kname(e.s)[1])+"</button>").join("")+"</div>"),c.length&&(o+='<h2>🌱 Ready to power up</h2><div class="kchips">'+c.map(e=>'<button class="kchip" data-ks="'+esc(e.s)+'" data-kf="todo">'+kname(e.s)[0]+" "+esc(kname(e.s)[1])+"</button>").join("")+"</div>"),o}function kidFiltered(){return DATA.filter(e=>("all"===K.s||e.s===K.s)&&("todo"===K.f?isTodo(e)&&!conq.has(qid(e)):"done"!==K.f||isTodo(e)&&conq.has(qid(e))))}function kidCard(e){const t=qid(e),s=kname(e.s),n="Round "+e.a+" · "+e.t+" "+e.p+" · Q"+e.q;if(!isTodo(e))return'<div class="kq"><div class="top"><span class="tag">'+n+'</span><span class="badge Correct">Nailed it ✅</span></div><div class="small muted" style="margin-top:6px">'+s[0]+" "+esc(s[1])+" - you wrote: <b>"+esc(e.h)+"</b></div></div>";const a=conq.has(t),o=shown.has(t)||a,r=e.h?"You wrote: <b>"+esc(e.h)+"</b>":"You skipped this one - have a go now! 💪",i=e.m2||e.m,l=e.h2||i;let c='<div class="kq'+(a?" done":"")+'"><div class="top"><span class="tag">'+n+"</span>"+(a?'<span class="badge Correct">🏆 Conquered</span>':"")+'</div><div class="small muted" style="margin-top:6px">'+s[0]+" "+esc(s[1])+'</div><div class="qtext">'+esc(e.k)+"</div>"+(e.img?'<div class="qimg">'+e.img+"</div>":"")+'<div class="small">'+r+"</div>";return hints.has(t)&&!o&&l&&(c+='<div class="tip"><b>💡 Hint - have another go!</b>'+l.split("\n").map(e=>"<div>"+esc(e)+"</div>").join("")+'<button class="hidebtn" data-unhint="'+t+'">🙈 Hide hint</button></div>'),o&&(c+='<div class="ansbox">✅ The answer is: <b>'+esc(e.c)+"</b></div>"),o&&e.w&&(c+='<div class="tip what"><b>🔎 What happened</b>'+e.w.split("\n").map(e=>"<div>"+esc(e)+"</div>").join("")+"</div>"),o&&i&&(c+='<div class="tip"><b>✏️ How it works</b>'+i.split("\n").map(e=>"<div>"+esc(e)+"</div>").join("")+"</div>"),c+='<div class="row2">',a||hints.has(t)||shown.has(t)||(c+='<button class="kbtn ghost" data-hint="'+t+'">💡 Hint</button>'),a||shown.has(t)||(c+='<button class="kbtn ghost" data-show="'+t+'">👀 Show answer</button>'),!a&&shown.has(t)&&(c+='<button class="kbtn" data-conq="'+t+'">🎉 I get it now!</button>'),a&&(c+='<button class="kbtn ghost" data-unconq="'+t+'">↩️ Put back in To do</button>'),c+="</div></div>",c}function kidMissions(){const e=kidFiltered(),t=DATA.filter(isTodo),s=t.filter(e=>!conq.has(qid(e))).length,n=t.length-s,a=(e,t)=>'<button class="kchip'+(K.f===e?" on":"")+'" data-kf="'+e+'">'+t+"</button>";let o=topbar()+'<h1>Missions 🎯</h1><p class="sub">Have a go in your head first, then tap for help!</p><div class="kchips">'+a("todo","🎯 To do ("+s+")")+a("done","✅ Conquered ("+n+")")+a("all","📚 Everything")+'</div><div class="sel" style="margin:12px 0 14px"><select data-ksel="1"><option value="all">All superpowers</option>'+skills.map(e=>'<option value="'+esc(e)+'"'+(K.s===e?" selected":"")+">"+kname(e)[0]+" "+esc(kname(e)[1])+"</option>").join("")+"</select></div>";return e.length||(o+='<div class="empty">'+("todo"===K.f?"🎉 No missions left here - you conquered them all!":"done"===K.f?"Nothing here yet - conquer a mission to see it here!":"Nothing to show.")+"</div>"),e.forEach(e=>{o+=kidCard(e)}),o}function kidSkills(){let e=topbar()+'<h1>Superpowers ⚡</h1><p class="sub">Tap one to practise it!</p>';return skillStats().forEach(t=>{const s=kname(t.s),n=t.p>=75?3:t.p>=50?2:1,a=t.p>=75?"Superpower unlocked! ⚡":t.p>=50?"Getting strong 💪":"Ready to level up 🌱",o=t.p>=75?"var(--ok)":t.p>=50?"var(--blank)":"var(--accent)";e+='<button class="ksk" data-ks="'+esc(t.s)+'" data-kf="'+(t.lost>0?"todo":"all")+'"><div class="row"><span class="nm">'+s[0]+" "+esc(s[1])+'</span><span class="stars" style="margin:0;font-size:18px">'+"⭐".repeat(n)+'</span></div><div class="meter"><i style="width:'+Math.max(t.p,6)+"%;background:"+o+'"></i></div><div class="row small"><span>'+t.ok+" of "+t.n+" right</span><span>"+a+"</span></div></button>"}),e}function csv(){const e=e=>'"'+String(null==e?"":e).replace(/"/g,'""')+'"',t=[["Attempt","Test","Part","Q","Skill","Her answer","Correct answer","Result","Note"].map(e).join(",")].concat(DATA.map(t=>[t.a,t.t,t.p,t.q,t.s,t.h,t.c,res(t),t.n].map(e).join(","))),s=new Blob([t.join("\n")],{type:"text/csv"}),n=document.createElement("a");n.href=URL.createObjectURL(s),n.download="maths_tracker.csv",document.body.appendChild(n),n.click(),n.remove()}function toast(e){const t=document.createElement("div");t.className="toast",t.textContent=e,document.body.appendChild(t),setTimeout(()=>t.remove(),1800)}function render(){const e=document.getElementById("app"),t=document.getElementById("nav"),s=window.scrollY,n="kid"===mode;document.documentElement.dataset.mode=mode,e.innerHTML=n?"overview"===tab?kidOverview():"questions"===tab?kidMissions():"quests"===tab?nvView():kidSkills():"overview"===tab?overview():"questions"===tab?questions():"quests"===tab?nvView():skillsView();const a=n?[["overview","🏠","Home"],["questions","🎯","Missions"],["skills","⚡","Superpowers"],["quests","🗺️","Side quests"]]:[["overview","■","Overview"],["questions","☰","Questions"],["skills","▲","Skills"],["quests","◈","Reasoning"]];t.innerHTML=a.map(e=>'<button data-tab="'+e[0]+'" class="'+(e[0]===tab?"on":"")+'"><b>'+e[1]+"</b>"+e[2]+"</button>").join(""),window.scrollTo(0,s)}function mulberry32(e){return function(){e=(e|=0)+1831565813|0;let t=Math.imul(e^e>>>15,1|e);return t=t+Math.imul(t^t>>>7,61|t)^t,((t^t>>>14)>>>0)/4294967296}}function hash32(){let e=2166136261;for(const t of arguments){const s=String(t);for(let t=0;t<s.length;t++)e^=s.charCodeAt(t),e=Math.imul(e,16777619);e^=124,e=Math.imul(e,16777619)}return e>>>0}const RI=(e,t,s)=>t+Math.floor(e()*(s-t+1)),PK=(e,t)=>t[Math.floor(e()*t.length)];function SHF(e,t){const s=t.slice();for(let t=s.length-1;t>0;t--){const n=Math.floor(e()*(t+1)),a=s[t];s[t]=s[n],s[n]=a}return s}const FNAME=["white","light grey","dark"],ZNAME=["small","medium","big"],SHN={sq:"square",cir:"circle",tri:"triangle",dia:"diamond",pent:"pentagon",hex:"hexagon",ell:"oval",arrow:"arrow",semi:"half-circle",flag:"flag"},PG=(e,t)=>Array.from({length:e},(s,n)=>{const a=(360*n/e-90)*Math.PI/180;return(t*Math.cos(a)).toFixed(2)+","+(t*Math.sin(a)).toFixed(2)}).join(" "),SHP={sq:'<rect x="-.82" y="-.82" width="1.64" height="1.64"/>',cir:'<circle r=".92"/>',tri:'<polygon points="0,-.95 .95,.8 -.95,.8"/>',dia:'<polygon points="0,-1 .85,0 0,1 -.85,0"/>',pent:'<polygon points="'+PG(5,.97)+'"/>',hex:'<polygon points="'+PG(6,.97)+'"/>',arrow:'<polygon points="0,-1 .85,-.05 .32,-.05 .32,.95 -.32,.95 -.32,-.05 -.85,-.05"/>',semi:'<path d="M-.95,.5 A.95,.95 0 0 1 .95,.5 Z"/>',ell:'<ellipse rx=".98" ry=".6"/>',flag:'<polygon points="-.55,-.95 -.35,-.95 .85,-.52 -.35,-.1 -.35,.95 -.55,.95"/>'},SYMO={sq:90,dia:180,pent:72,hex:60,ell:180,cir:1,tri:360,arrow:360,semi:360,flag:360},SZF=[.5,.72,.95],NPOS={1:[[0,0]],2:[[-.52,0],[.52,0]],3:[[-.55,.38],[.55,.38],[0,-.5]],4:[[-.52,-.52],[.52,-.52],[-.52,.52],[.52,.52]],5:[[-.64,-.52],[0,-.52],[.64,-.52],[-.32,.52],[.32,.52]],6:[[-.64,-.52],[0,-.52],[.64,-.52],[-.64,.52],[0,.52],[.64,.52]]},NSC={1:1,2:.5,3:.46,4:.42,5:.34,6:.34},SVGO=(e,t,s,n)=>'<svg class="nv '+(n||"")+'" viewBox="0 0 '+e+" "+t+'" role="img" aria-hidden="true">'+s+"</svg>",BOX=(e,t,s,n,a)=>'<rect class="bx'+(a?" dash":"")+'" x="'+e+'" y="'+t+'" width="'+s+'" height="'+n+'" rx="9"/>';function fig(e,t,s,n){const a=e.n||1,o=null==e.sz?1:e.sz,r=(t,s,n,a)=>{const o="translate("+t.toFixed(1)+" "+s.toFixed(1)+") rotate("+(e.rot||0)+") "+(e.mir?"scale(-1 1) ":"")+"scale("+n.toFixed(2)+")";return'<g class="nvf g'+(e.fi||0)+'" transform="'+o+'">'+SHP[e.sh]+(a&&e.mk?'<circle class="mk" cx="0" cy="-.5" r=".15"/>':"")+(e.dot?'<circle class="mk" r=".17"/>':"")+"</g>"};if(null!=e.pos){const a=[[-.52,-.52],[.52,-.52],[.52,.52],[-.52,.52]][e.pos];return r(t+a[0]*n,s+a[1]*n,n*SZF[o]*.5,!0)}return 1===a?r(t,s,n*SZF[o],!0):NPOS[a].map(e=>r(t+e[0]*n,s+e[1]*n,n*SZF[o]*NSC[a],!1)).join("")}function visSig(e){const t=e.mk||e.dot?360:SYMO[e.sh]||360,s=e.n||1,n=s>1?0:((e.rot||0)%360+360)%360,a=1===t?0:n%t;return[e.sh,e.fi||0,null==e.sz?1:e.sz,s,e.mk?1:0,e.dot?1:0,null==e.pos?-1:e.pos,e.mir?1:0,a].join("|")}const optSvg=e=>SVGO(100,100,BOX(2,2,96,96)+fig(e,50,50,34));function perturb(e,t,s){const n=Object.assign({},t);switch(s){case"fi":n.fi=PK(e,[0,1,2].filter(e=>e!==t.fi));break;case"sz":n.sz=PK(e,[0,1,2].filter(e=>e!==(null==t.sz?1:t.sz)));break;case"rot":n.rot=(t.rot||0)+PK(e,[45,90,-45,-90,180]);break;case"n":n.n=PK(e,[(t.n||1)-1,(t.n||1)+1].filter(e=>e>=1&&e<=6));break;case"sh":n.sh=PK(e,["sq","cir","tri","dia","pent","hex"].filter(e=>e!==t.sh));break;case"pos":n.pos=PK(e,[0,1,2,3].filter(e=>e!==t.pos));break;case"mir":n.mir=t.mir?0:1}return n}function assemble(e,t,s,n){const a=new Set([visSig(t)]),o=[],r=(e,t)=>{const s=visSig(e);a.has(s)||(a.add(s),o.push({f:e,tag:t}))};SHF(e,s).forEach(e=>r(e.f,e.tag));let i=0;for(;o.length<4&&i++<80;){const s=PK(e,n);r(perturb(e,t,s),s)}const l=SHF(e,o.slice(0,4).concat([{f:t,tag:"ok"}]));return{opts:l.map(e=>({svg:optSvg(e.f),tag:e.tag,sig:visSig(e.f)})),ans:l.findIndex(e=>"ok"===e.tag)}}function noiseVec(e,t,s){if(e()<.35){const n=PK(e,t);return Array(s).fill(n)}const n=PK(e,t),a=PK(e,t.filter(e=>e!==n)),o=SHF(e,[0,1,2,3,4]),r=Array(s).fill(n);return o.slice(0,2).forEach(e=>{r[e]=a}),r}const NB=[[1,0],[-1,0],[0,1],[0,-1]],cKey=e=>e.map(e=>e[0]+","+e[1]).sort().join(";");function norm(e){const t=Math.min.apply(null,e.map(e=>e[0])),s=Math.min.apply(null,e.map(e=>e[1]));return e.map(e=>[e[0]-t,e[1]-s])}const rot90=e=>norm(e.map(e=>[e[1],-e[0]])),mirH=e=>norm(e.map(e=>[e[0],-e[1]]));function rotK(e,t){let s=norm(e);for(let e=0;e<t;e++)s=rot90(s);return s}function symmetries(e){const t=[];let s=norm(e);for(let e=0;e<4;e++)t.push(s),s=rot90(s);let n=mirH(e);for(let e=0;e<4;e++)t.push(n),n=rot90(n);return t}function isChiral(e){const t=cKey(mirH(e));for(let s=0,n=norm(e);s<4;s++,n=rot90(n))if(cKey(n)===t)return!1;return!0}function connected(e){if(!e.length)return!1;const t=new Set([e[0][0]+","+e[0][1]]),s=[e[0]],n=(t,s)=>e.some(e=>e[0]===t&&e[1]===s);for(;s.length;){const e=s.pop();NB.forEach(a=>{const o=e[0]+a[0],r=e[1]+a[1],i=o+","+r;n(o,r)&&!t.has(i)&&(t.add(i),s.push([o,r]))})}return t.size===e.length}function randPoly(e,t,s){for(let n=0;n<400;n++){const n=[[RI(e,0,s-1),RI(e,0,s-1)]];let a=0;for(;n.length<t&&a++<300;){const t=PK(e,n),a=PK(e,NB),o=t[0]+a[0],r=t[1]+a[1];o<0||r<0||o>=s||r>=s||n.some(e=>e[0]===o&&e[1]===r)||n.push([o,r])}if(n.length===t)return n}return null}function changedPoly(e,t,s){const n=symmetries(t).map(cKey);for(let a=0;a<300;a++){const a=PK(e,t),o=t.filter(e=>e!==a);if(!connected(o))continue;const r=[];if(o.forEach(e=>NB.forEach(t=>{const n=e[0]+t[0],i=e[1]+t[1];n>=0&&i>=0&&n<s&&i<s&&!o.some(e=>e[0]===n&&e[1]===i)&&(n!==a[0]||i!==a[1])&&r.push([n,i])})),!r.length)continue;const i=o.concat([PK(e,r)]);if(!n.includes(cKey(norm(i))))return i}return null}function isSym(e){const t=norm(e),s=Math.max.apply(null,t.map(e=>e[0]))+1,n=Math.max.apply(null,t.map(e=>e[1]))+1,a=cKey(t);if(cKey(t.map(e=>[e[0],n-1-e[1]]))===a)return!0;if(cKey(t.map(e=>[s-1-e[0],e[1]]))===a)return!0;if(s===n){if(cKey(t.map(e=>[e[1],e[0]]))===a)return!0;if(cKey(t.map(e=>[n-1-e[1],s-1-e[0]]))===a)return!0}return!1}function symPoly(e,t,s,n){for(let a=0;a<800;a++){const a=[];for(let t=0;t<s;t++)for(let s=0;s<Math.ceil(n/2);s++)if(e()<.55){a.push([t,s]);const e=n-1-s;e!==s&&a.push([t,e])}if(a.length!==t||!connected(a))continue;const o=norm(a);if(Math.max.apply(null,o.map(e=>e[1]))+1===n&&!(Math.max.apply(null,o.map(e=>e[0]))+1<3))return a}return null}function polySvg(e,t){const s=norm(e),n=Math.max.apply(null,s.map(e=>e[0]))+1,a=50-(Math.max.apply(null,s.map(e=>e[1]))+1)*t/2,o=50-n*t/2;return SVGO(100,100,BOX(2,2,96,96)+s.map(e=>'<rect class="nvf g1 cellp" x="'+(a+e[1]*t).toFixed(1)+'" y="'+(o+e[0]*t).toFixed(1)+'" width="'+t+'" height="'+t+'"/>').join(""))}function genOdd(e,t){const s=["sq","cir","tri","dia","pent","hex"],n=["sq","tri","pent","hex","dia"],a=["cir","ell"],o=RI(e,0,4);let r=[],i=[];const l=e=>e.map((e,t)=>({svg:optSvg(e),tag:t===o?"ok":"noise",sig:visSig(e)}));if(1===t){const t=SHF(e,s),n=PK(e,[0,1,2]),a=PK(e,[1,2]);r=l(Array.from({length:5},(e,s)=>({sh:s===o?t[1]:t[0],fi:n,sz:a}))),i=["Four are "+SHN[t[0]]+"s. One is a "+SHN[t[1]]+"."]}else if(2===t){const t=SHF(e,[0,1,2]),n=noiseVec(e,SHF(e,s).slice(0,3),5),a=noiseVec(e,[0,1,2],5);r=l(Array.from({length:5},(e,s)=>({sh:n[s],fi:s===o?t[1]:t[0],sz:a[s]}))),i=["Four have "+FNAME[t[0]]+" shading. One has "+FNAME[t[1]]+" shading.","Shape and size change in lots of them, so they are not the clue."]}else if(3===t)if(e()<.5){const t=e()<.6,s=t?n:a,c=t?a:n,d=noiseVec(e,[0,1,2],5),p=noiseVec(e,[0,1,2],5),h=t?null:PK(e,[["cir","cir","cir","cir"],["ell","ell","ell","ell"],SHF(e,["cir","cir","ell","ell"])]);let u=0;r=l(Array.from({length:5},(n,a)=>({sh:a===o?PK(e,c):t?PK(e,s):h[u++],fi:d[a],sz:p[a]}))),i=t?["Four shapes have only straight sides. One has a curved edge."]:["Four shapes are curved all the way round. One has straight sides."]}else{const t=e()<.5,n=noiseVec(e,SHF(e,s).slice(0,3),5),a=noiseVec(e,[0,1,2],5),c=noiseVec(e,[1,2],5);r=l(Array.from({length:5},(e,s)=>({sh:n[s],fi:a[s],sz:c[s],dot:s===o?t?0:1:t?1:0}))),i=t?["Four have a dot in the middle. One has no dot."]:["Four have no dot. One has a dot in the middle."]}else{const t=PK(e,[8,9,10]),s=[],n=new Set;let a=0;for(;s.length<4&&a++<600;){const a=t%2==0?PK(e,[3,4]):3,o=symPoly(e,t,4,a);if(o){const e=symmetries(o).map(cKey).sort()[0];n.has(e)||(n.add(e),s.push(o))}}let l=null;for(a=0;a++<800;){const s=randPoly(e,t,4),n=s&&norm(s);if(s&&!isSym(s)&&connected(s)&&Math.max.apply(null,n.map(e=>e[1]))>=2&&Math.max.apply(null,n.map(e=>e[0]))>=2){l=s;break}}const d=[];let p=0;for(let e=0;e<5;e++)d.push(e===o?l:s[p++]);var c=d;r=d.map((t,s)=>({svg:polySvg(rotK(t,RI(e,0,3)),18),tag:s===o?"ok":"noise",sig:"p"+s})),i=["Four shapes are symmetrical: you could fold each one along a line and the two halves would match.","One shape has no line of symmetry."]}return{stem:"",opts:r,ans:o,why:i,meta:{polyCells:void 0!==c?c:null},hint:["Check one feature at a time: shape, shading, size, any dots, curved or straight edges.","Which picture breaks the group?"]}}const mkRule=(e,t,s)=>({attr:e,fn:t,say:s}),R_FILL_ALT=(e,t)=>mkRule("fi",s=>s%2?t:e,"The shading swaps between "+FNAME[e]+" and "+FNAME[t]+"."),R_SIZE_ALT=(e,t)=>mkRule("sz",s=>s%2?t:e,"The size swaps between "+ZNAME[e]+" and "+ZNAME[t]+"."),R_COUNT=()=>mkRule("n",e=>e+1,"One more shape is added each time."),R_ROT=e=>mkRule("rot",t=>t*e,"The shape turns "+e+"° clockwise each time."),R_SHAPE3=e=>mkRule("sh",t=>e[t%3],"The shapes repeat in a cycle of three: "+e.map(e=>SHN[e]).join(", ")+"."),R_SHAPE2=(e,t)=>mkRule("sh",s=>s%2?t:e,"The shape swaps between "+SHN[e]+" and "+SHN[t]+"."),R_FILL3=()=>mkRule("fi",e=>e%3,"The shading cycles: white, light grey, dark, then white again."),R_POS=()=>mkRule("pos",e=>e%4,"The shape hops clockwise to the next corner each time.");function genSeries(e,t){const s=["arrow","tri","semi"],n=["sq","cir","tri","dia","pent","hex"];let a=[],o=4,r={sh:PK(e,n),fi:0,sz:1,rot:0,n:1};const i=()=>PK(e,[[0,2],[2,0],[0,1],[1,2]]);if(1===t){const t=PK(e,["fill","size","count"]);if("fill"===t){const e=i();a=[R_FILL_ALT(e[0],e[1])]}else if("size"===t){const t=PK(e,[[0,2],[2,0],[0,1]]);a=[R_SIZE_ALT(t[0],t[1])]}else a=[R_COUNT()],r.sz=2}else if(2===t){const t=PK(e,["rot","shape3","fill3","pos"]);"rot"===t?(r.sh=PK(e,s),a=[R_ROT(45)]):"shape3"===t?(a=[R_SHAPE3(SHF(e,n).slice(0,3))],o=5):"fill3"===t?(a=[R_FILL3()],o=5):a=[R_POS()]}else if(3===t){o=5;const t=PK(e,["rotfill","countfill","rotsize","posfill"]);if("rotfill"===t){r.sh=PK(e,s);const t=i();a=[R_ROT(90),R_FILL_ALT(t[0],t[1])]}else if("countfill"===t){r.sz=2;const e=i();a=[R_COUNT(),R_FILL_ALT(e[0],e[1])]}else if("rotsize"===t)r.sh=PK(e,s),a=[R_ROT(45),R_SIZE_ALT(0,2)];else{const e=i();a=[R_POS(),R_FILL_ALT(e[0],e[1])]}}else{o=5;const t=PK(e,["A","B","C"]);if("A"===t)r.sh=PK(e,s),a=[R_ROT(45),R_FILL3(),R_SIZE_ALT(1,2)];else if("B"===t){const t=SHF(e,n).slice(0,3);a=[R_SHAPE3(t),R_FILL_ALT(0,2),R_POS()]}else{const t=SHF(e,n);r.sz=2,a=[R_COUNT(),R_SHAPE2(t[0],t[1]),R_FILL3()]}}const l=Array.from({length:o+1},(e,t)=>{const s=Object.assign({},r);return a.forEach(e=>{s[e.attr]=e.fn(t)}),s}),c=l[o],d=l[o-1],p=[{f:d,tag:"repeat"},{f:l[o-2],tag:"repeat"}];a.forEach(t=>{const s=Object.assign({},c);s[t.attr]=d[t.attr],p.push({f:s,tag:"stall"}),p.push({f:perturb(e,c,t.attr),tag:t.attr}),p.push({f:perturb(e,c,t.attr),tag:t.attr})});const h=assemble(e,c,p,a.map(e=>e.attr).concat(["sh","fi"])),u=50,v=56*(o+1)-6;let m="";for(let e=0;e<=o;e++){const t=56*e;m+=BOX(t+1,1,48,48,e===o),m+=e<o?fig(l[e],t+25,25,21):'<text class="svgtxt" x="'+(t+25)+'" y="33" text-anchor="middle">?</text>'}return{stem:SVGO(v,u,m),opts:h.opts,ans:h.ans,why:a.map(e=>e.say),meta:{items:l,nShow:o,attrs:a.map(e=>e.attr)},hint:["Say what changes from picture 1 to 2, then from 2 to 3.","Keep going with the same changes for the empty box."]}}function genAnalogy(e,t){const s=["sq","cir","tri","dia","pent","hex"],n=["arrow","tri","semi"],a=[[0,2],[2,0],[0,1],[1,2],[2,1]],o=(e,t)=>({attr:"fi",start:t=>{t.fi=e},apply:e=>Object.assign({},e,{fi:t}),wrong:s=>Object.assign({},s,{fi:[0,1,2].find(s=>s!==e&&s!==t)}),say:"The shading changes from "+FNAME[e]+" to "+FNAME[t]+"."}),r=(e,t)=>({attr:"sz",start:t=>{t.sz=e},apply:e=>Object.assign({},e,{sz:t}),wrong:s=>Object.assign({},s,{sz:[0,1,2].find(s=>s!==e&&s!==t)}),say:"The size changes from "+ZNAME[e]+" to "+ZNAME[t]+"."}),i=e=>({attr:"rot",start:e=>{e.rot=0},apply:t=>Object.assign({},t,{rot:(t.rot||0)+e}),wrong:t=>Object.assign({},t,{rot:(t.rot||0)+(180===Math.abs(e)?90:-e)}),say:180===Math.abs(e)?"The shape is turned upside down (a half turn).":"The shape turns "+Math.abs(e)+"° "+(e>0?"clockwise":"anticlockwise")+"."}),l=()=>({attr:"mir",start:e=>{e.mir=0},apply:e=>Object.assign({},e,{mir:1}),wrong:e=>Object.assign({},e,{rot:180}),say:"The shape is flipped over like a mirror image (left and right swap)."}),c=()=>({attr:"n",start:e=>{e.n=1},apply:e=>Object.assign({},e,{n:(e.n||1)+1}),wrong:e=>Object.assign({},e,{n:(e.n||1)+2}),say:"One more shape is added."}),d=(e,t,s)=>({attr:"sh",start:t=>{t.sh=e},apply:e=>Object.assign({},e,{sh:t}),wrong:e=>Object.assign({},e,{sh:s}),say:"The "+SHN[e]+" changes into a "+SHN[t]+"."});let p,h,u=[],v=!1,m=!1;const f=t=>{const s=SHF(e,t);p=s[0],h=s[1]};if(1===t){const t=PK(e,a);u=[e()<.5?o(t[0],t[1]):r(t[0],t[1])],f(s)}else if(2===t)u=[i(PK(e,[90,180,-90]))],f(n);else if(3===t)e()<.5?(u=[l()],p=h="flag",v=!0):(u=[c()],f(s),m=!0);else{const t=PK(e,["rotfill","mirrorsize","swapfill","countfill"]),g=PK(e,a);if("rotfill"===t)u=[i(PK(e,[90,-90,180])),o(g[0],g[1])],f(n);else if("mirrorsize"===t)u=[l(),r(a[0][0],a[0][1])],p=h="flag",v=!0;else if("swapfill"===t){const t=SHF(e,s);u=[d(t[0],t[1],t[2]),o(g[0],g[1])],p=h=t[0],v=!0}else u=[c(),o(g[0],g[1])],f(s),m=!0}const g={sh:p,fi:0,sz:1,rot:0,n:1};u.forEach(e=>e.start(g)),m&&(g.sz=2);const b=Object.assign({},g,{sh:h});if(v){const t=u.some(e=>"sz"===e.attr),s=u.some(e=>"fi"===e.attr);t||s?t?b.fi=PK(e,[1,2]):b.sz=PK(e,[0,2]):b.fi=PK(e,[1,2])}const k=u.reduce((e,t)=>t.apply(e),g),y=u.reduce((e,t)=>t.apply(e),b),w=[{f:b,tag:"nochange"},{f:k,tag:"copyB"}];u.forEach((e,t)=>{w.push({f:u.filter((e,s)=>s!==t).reduce((e,t)=>t.apply(e),b),tag:"partial"}),w.push({f:u.reduce((e,s,n)=>n===t?s.wrong(e):s.apply(e),b),tag:e.attr})});const S=assemble(e,y,w,["fi","sz","sh"]),x=60;let T=BOX(1,1,58,58)+fig(g,31,30,25)+'<text class="svgtxt" x="77" y="38" text-anchor="middle">→</text>'+BOX(92,1,58,58)+fig(k,122,30,25)+'<text class="svgtxt" x="164" y="38" text-anchor="middle">:</text>'+BOX(176,1,58,58)+fig(b,206,30,25)+'<text class="svgtxt" x="251" y="38" text-anchor="middle">→</text>'+BOX(266,1,58,58,!0)+'<text class="svgtxt" x="296" y="40" text-anchor="middle">?</text>';return{stem:SVGO(328,x,T),opts:S.opts,ans:S.ans,meta:{A:g,B:k,C:b,ans:y},why:u.map(e=>e.say).concat(["Do exactly the same change to the third picture."]),hint:["What changed between the first two pictures? Name each change.","Make the very same change(s) to the third picture."]}}function genMatrix(e,t){const s=SHF(e,["sq","cir","tri","dia","pent","hex"]).slice(0,3),n=SHF(e,[0,1,2]);let a,o=3,r=[];if(1===t){o=2;const t=PK(e,[[0,2],[2,0]]);a=(e,n)=>({sh:s[e],fi:t[n],sz:1}),r=["Each row has its own shape.","The shading changes along the row in the same way each time."]}else 2===t?(a=(e,t)=>({sh:s[e],fi:n[t],sz:1}),r=["Each row has its own shape.","Each column has its own shading."]):3===t?(a=(e,t)=>({sh:s[(e+t)%3],fi:n[e],sz:1}),r=["Each row has its own shading.","The three shapes shift along one place in each row, so every row and column has each shape once."]):(a=(e,t)=>({sh:s[(e+t)%3],fi:n[(e+2*t)%3],sz:1}),r=["Every row and every column has each of the three shapes exactly once.","Every row and every column also has each of the three shadings exactly once.","So the missing square is the shape and shading not yet used in its row and column."]);const i=o-1,l=a(i,i),c=()=>Object.assign({},l,{sh:PK(e,s.slice(0,2===o?2:3).filter(e=>e!==l.sh))}),d=[{f:a(i,i-1),tag:"copyrow"},{f:a(i-1,i),tag:"copycol"},{f:c(),tag:"sh"},{f:c(),tag:"sh"},{f:c(),tag:"sh"},{f:perturb(e,l,"fi"),tag:"fi"},{f:perturb(e,l,"fi"),tag:"fi"},{f:perturb(e,l,"sz"),tag:"sz"}];3===o&&(d.push({f:a(0,i),tag:"copycol"}),d.push({f:a(i,0),tag:"copyrow"}));const p=assemble(e,l,d,["fi","sz"]),h=56,u=o*h+4;let v="";for(let e=0;e<o;e++)for(let t=0;t<o;t++){const s=2+t*h,n=2+e*h;v+=e===i&&t===i?BOX(s+1,n+1,52,52,!0)+'<text class="svgtxt" x="'+(s+28-1)+'" y="'+(n+28+8)+'" text-anchor="middle">?</text>':BOX(s+1,n+1,52,52)+fig(a(e,t),s+28-1,n+28-1,21)}return{stem:SVGO(u,u,v,"sq"),opts:p.opts,ans:p.ans,why:r,meta:{N:o,L:t,grid:Array.from({length:o},(e,t)=>Array.from({length:o},(e,s)=>a(t,s))),optSigs:p.opts.map(e=>e.sig)},hint:["Look at one row, then one column. What stays the same? What changes?","Which picture is missing from its row and column?"]}}function genTurn(e,t){const s={1:{k:4,n:3,cs:26,nm:2,nc:1},2:{k:5,n:3,cs:24,nm:2,nc:1},3:{k:6,n:4,cs:20,nm:2,nc:2},4:{k:7,n:4,cs:18,nm:2,nc:2}}[t];let n=null,a=[];for(let t=0;t<900&&!n;t++){const t=randPoly(e,s.k,s.n);if(t&&isChiral(t)&&connected(t)){const e=cKey(norm(t)),s=[1,2,3].filter(s=>cKey(rotK(t,s))!==e);s.length&&(n=t,a=s)}}const o=new Set,r=[],i=(e,t)=>{const s=cKey(norm(e));return!o.has(s)&&(o.add(s),r.push({cells:e,tag:t}),!0)},l=norm(n);o.add(cKey(l));const c=PK(e,a);i(rotK(n,c),"ok");let d=0;const p=SHF(e,[0,1,2,3]);let h=0;for(;r.filter(e=>"mirror"===e.tag).length<s.nm&&d++<40;)i(rotK(mirH(n),p[h++%4]),"mirror");for(d=0;r.filter(e=>"changed"===e.tag).length<s.nc&&d++<60;){const t=changedPoly(e,n,s.n);t&&i(rotK(t,RI(e,0,3)),"changed")}for(d=0;r.length<(t<=2?4:5)&&d++<60;){const t=changedPoly(e,n,s.n);t&&i(rotK(t,RI(e,0,3)),"changed")}const u=SHF(e,r);return{stem:SVGO(100,100,BOX(2,2,96,96)+norm(n).map(e=>{const t=Math.max.apply(null,norm(n).map(e=>e[0]))+1;return'<rect class="nvf g1 cellp" x="'+(50-(Math.max.apply(null,norm(n).map(e=>e[1]))+1)*s.cs/2+e[1]*s.cs).toFixed(1)+'" y="'+(50-t*s.cs/2+e[0]*s.cs).toFixed(1)+'" width="'+s.cs+'" height="'+s.cs+'"/>'}).join(""),"one"),opts:u.map(e=>({svg:polySvg(e.cells,s.cs),tag:e.tag,sig:cKey(norm(e.cells))})),ans:u.findIndex(e=>"ok"===e.tag),meta:{orig:n,cells:u.map(e=>e.cells)},why:["The correct one is the original shape turned round, like turning a steering wheel.","A flipped (mirror) shape can never be turned to match.","Some options have a square moved to a different place, so they are a different shape."],hint:["Pick one odd-looking part, like the longest arm, and follow it as you turn the shape in your head.","Remember: turning is OK, flipping over is not."]}}function genCode(e,t){const s=SHF(e,"ABCDEFGH".split(""));let n=0;const a=()=>s[n++],o=t>=3,r=2===t||4===t?3:2,i=SHF(e,["sq","tri","cir","dia"]).slice(0,r),l=[0,2],c=[0,2],d={sh:i.map(()=>a()),fi:l.map(()=>a())};o&&(d.sz=c.map(()=>a()));const p=o?["sh","fi","sz"]:["sh","fi"],h={sh:i,fi:l,sz:c},u={sh:0,fi:0,sz:0},v=e=>({sh:i[e.sh],fi:l[e.fi],sz:o?c[e.sz]:1}),m=e=>p.map(t=>d[t][e[t]]).join(""),f=[Object.assign({},u)];p.forEach(e=>{for(let t=1;t<h[e].length;t++){const s=Object.assign({},u);s[e]=t,f.push(s)}});const g={};p.forEach(t=>{g[t]=1+(h[t].length>2?RI(e,0,1):0)});const b=SHF(e,f),k=m(g),y=v(g),w=new Set([k]),S=[],x=[].concat.apply([],p.map(e=>d[e])),T=k.split("").reverse().join("");T!==k&&S.push({t:T,tag:"order"}),k.split("").forEach((e,t)=>{x.forEach(s=>{if(s!==e){const e=k.split("");e[t]=s,S.push({t:e.join(""),tag:"letter"})}})});const A=[];SHF(e,S).forEach(e=>{!w.has(e.t)&&A.length<4&&(w.add(e.t),A.push(e))}),T===k||A.some(e=>e.t===T)||(A[0]={t:T,tag:"order"});const E=SHF(e,A.map(e=>({t:e.t,tag:e.tag})).concat([{t:k,tag:"ok"}])),z=66,K=b.length+1;let P="";for(let e=0;e<K;e++){const t=104*(e%3)+8,s=92*Math.floor(e/3)+2;e<b.length?P+=BOX(t,s,z,z)+fig(v(b[e]),t+33,s+33,26)+'<text class="svgtxt code" x="'+(t+33)+'" y="'+(s+z+19)+'" text-anchor="middle">'+m(b[e])+"</text>":P+=BOX(t,s,z,z,!0)+fig(y,t+33,s+33,26)+'<text class="svgtxt code" x="'+(t+33)+'" y="'+(s+z+19)+'" text-anchor="middle">?</text>'}const q=Math.ceil(K/3),I=["Compare the examples. When only one thing changes, only one letter changes."].concat(p.map(e=>h[e].map((t,s)=>d[e][s]+" = "+("sh"===e?SHN[t]:"fi"===e?FNAME[t]:ZNAME[t])).join(", ")+"."));return{stem:SVGO(324,92*q,P),opts:E.map(e=>({text:e.t,tag:e.tag,sig:e.t})),ans:E.findIndex(e=>"ok"===e.tag),why:I,meta:{exs:b.map(e=>({fig:v(e),code:m(e)})),test:y,ans:k,attrs:p},hint:["Find two examples that are almost the same. The letter that is different matches the thing that is different.","Build the last code one letter at a time."]}}const NV_GEN={odd:genOdd,series:genSeries,analogy:genAnalogy,matrix:genMatrix,turn:genTurn,code:genCode};function nvSeed(e,t,s,n){return hash32(e,t,s,n)}function nvGen(e,t,s){const n=mulberry32(s),a=NV_GEN[e](n,t);return a.type=e,a.level=t,a.seed=s,a}const NVK="mm3_nvr_v1";let nv={runs:[],practice:[],start:{}};try{const e=JSON.parse(localStorage.getItem(NVK)||"null");e&&e.runs&&(nv=Object.assign({runs:[],practice:[],start:{}},e))}catch(e){}function nvSave(){try{localStorage.setItem(NVK,JSON.stringify(nv))}catch(e){}}let nvUI={screen:"home",pick:null,cur:null,pr:null,review:!1,justDone:!1};const NV_TYPES=[{id:"odd",name:"Odd One Out",kid:"Odd One Out Detective",em:"🕵️",src:"CAT4 Figure Classification; 11+ Odd One Out",prompt:"Which one is the odd one out?",how:["Four of these pictures follow the same pattern. One doesn't!","Look at the shapes, shading, size and details. Find what the four have in common."]},{id:"series",name:"What Comes Next",kid:"Pattern Pathfinder",em:"🧭",src:"11+ Missing Sequence",prompt:"What comes next in the pattern?",how:["Look along the row. The pictures change in the same way each step.","Work out the changes, then pick the picture for the empty box."]},{id:"analogy",name:"Shape Match-Up",kid:"Shape Match-Up",em:"🔗",src:"CAT4 Figure Matrices; 11+ Like Shapes",prompt:"The first picture changes into the second. What does the third picture change into?",how:["The first picture changes into the second one in a certain way.","Make exactly the same change to the third picture."]},{id:"matrix",name:"Missing Square",kid:"Missing Square Mystery",em:"🧩",src:"11+ Missing Square; CAT4 Figure Matrices",prompt:"Which picture finishes the grid?",how:["Every row and every column follows rules.","Work out the rules, then find the picture for the empty square."]},{id:"turn",name:"Turn or Flip",kid:"Turn or Flip?",em:"🔄",src:"11+ Rotations",prompt:"Which one is the SAME shape, just turned around? (Not flipped over!)",how:["You can turn a shape round, like a steering wheel, and it is still the same shape.","A flipped shape, like a mirror image, is different.","Find the one that is the original shape, just turned."]},{id:"code",name:"Code Breaker",kid:"Code Breaker",em:"🔐",src:"11+ Code Breaker",prompt:"Crack the code! What is the code for the last shape?",how:["Each shape has a secret code made of letters.","Compare the examples to find out what each letter means.","Then write the code for the last shape."]}],TAGCAT={repeat:"copying the last picture",stall:"applying only part of the rule",fi:"shading",sz:"size",rot:"turning / direction",n:"counting",sh:"shape",pos:"position",mir:"flip vs turn",mirror:"flip vs turn",changed:"spotting small differences",noise:"getting distracted by details",nochange:"copying without changing",copyB:"copying the example",partial:"applying only part of the rule",copyrow:"copying a neighbour",copycol:"copying a neighbour",letter:"what each letter means",order:"letter order",skip:"unsure",other:"other"},NVLEV=["Not yet established","Starting out","Developing","Secure","Strong (stretch level)"],NVLEVK=["Great place to start! 🌱","Warming up 🔥","Getting strong 💪","Super sharp ⚡","Superstar! 🏆"],NVLTXT=["","Warm-up","Core","Challenge","Stretch (11+ style)"];function nvRun(){const e=nv.runs[nv.runs.length-1];return e&&!e.end?e:null}function nvLastDone(e){let t=0;for(let s=nv.runs.length-1;s>=0;s--)if(nv.runs[s].end){if(t>=(e||0))return nv.runs[s];t++}return null}function nvNew(){const e=Date.now()%2147483647>>>0,t={};NV_TYPES.forEach(e=>{t[e.id]={lvl:1,k:0,consec:0,n:0,l4ok:0,done:!1}}),nv.runs.push({id:nv.runs.length+1,seed:e,start:Date.now(),end:null,items:[],tp:t,intro:{},breakSeen:!1}),nvSave(),nvUI.screen="run",nvUI.pick=null,nvUI.cur=null,nvUI.justDone=!1}function nvStep(e){const t=NV_TYPES.filter(t=>!e.tp[t.id].done);if(!t.length)return{screen:"done"};if(NV_TYPES.slice(0,3).every(t=>e.tp[t.id].done)&&!e.breakSeen)return{screen:"break"};const s=t[0];return e.intro[s.id]?{screen:"item",type:s.id}:{screen:"intro",type:s.id}}function nvCurItem(e,t){const s=e.tp[t],n=e.id+"-"+t+"-"+s.lvl+"-"+s.k;return nvUI.cur&&nvUI.cur.key===n||(nvUI.cur={key:n,item:nvGen(t,s.lvl,nvSeed(e.seed,t,s.lvl,s.k)),t0:Date.now()},nvUI.pick=null),nvUI.cur}function nvRecord(e,t){const s=nvStep(e);if("item"!==s.screen)return;const n=s.type,a=e.tp[n],o=nvCurItem(e,n),r=o.item,i=t?null:nvUI.pick,l=!t&&i===r.ans,c=Math.min(18e4,Date.now()-o.t0);e.items.push({t:n,l:a.lvl,k:a.k,pi:i,ok:l,skip:!!t,ms:c,tag:t?"skip":null==i?"other":r.opts[i].tag}),a.n++,a.k++,l?(a.consec=0,a.lvl<4?a.lvl++:(a.l4ok++,a.l4ok>=2&&(a.done=!0))):(a.consec++,a.consec>=2&&(a.done=!0)),a.n>=7&&(a.done=!0),NV_TYPES.every(t=>e.tp[t.id].done)&&(e.end=Date.now()),nvUI.pick=null,nvUI.cur=null,nvSave()}function nvAnalyse(e){const t={};return NV_TYPES.forEach(s=>{const n=e.items.filter(e=>e.t===s.id),a={};n.forEach(e=>{e.ok&&(a[e.l]=(a[e.l]||0)+1)});let o=0;for(let e=1;e<=4;e++)(a[e]||0)>=(4===e?2:1)&&(o=e);const r=n.filter(e=>!e.skip).map(e=>e.ms).sort((e,t)=>e-t),i={};n.filter(e=>!e.ok).forEach(e=>{const t=TAGCAT[e.tag]||"other";i[t]=(i[t]||0)+1}),t[s.id]={eff:o,n:n.length,ok:n.filter(e=>e.ok).length,skips:n.filter(e=>e.skip).length,med:r.length?r[Math.floor(r.length/2)]:null,errs:i,stretch:1===a[4],items:n}}),t}function nvPlan(e){const t=NV_TYPES.map(e=>e.id),s=t=>e[t].n?e[t].ok/e[t].n:0,n=t.slice().sort((t,n)=>e[n].eff-e[t].eff||s(n)-s(t))[0],a=t.filter(e=>e!==n).sort((t,n)=>e[t].eff-e[n].eff||s(t)-s(n));return{warm:n,focus:a.slice(0,3),keep:a.slice(3)}}const nvT=e=>NV_TYPES.find(t=>t.id===e),nvName=e=>"kid"===mode?nvT(e).kid:nvT(e).name,nvSecs=e=>null==e?"-":Math.round(e/1e3)+" s";function nvOpts(e,t){return'<div class="opts '+(4===e.opts.length?"c2":"c3")+'">'+e.opts.map((s,n)=>{let a="opt";return t.reveal?n===e.ans?a+=" good":n===t.pick&&(a+=" bad"):n===t.sel&&(a+=" sel"),'<button class="'+a+'" '+(t.interactive?'data-nv="pick" data-v="'+n+'"':"disabled")+' aria-label="Option '+"ABCDE"[n]+'">'+(s.svg||'<span class="codeopt">'+esc(s.text)+"</span>")+'<span class="lt">'+"ABCDE"[n]+"</span></button>"}).join("")+"</div>"}const nvList=e=>e.map(e=>"<div>"+esc(e)+"</div>").join("");function nvIntroScreen(e){const t=nvT(e),s=NV_TYPES.findIndex(t=>t.id===e),n=nvGen(e,1,9100+s);return topbar()+"<h1>"+t.em+" "+nvName(e)+'</h1><div class="kcard"><b>How it works</b><div class="tip" style="margin-top:6px">'+nvList(t.how)+'</div><div class="nvprompt" style="margin-top:12px">Example</div><div class="small muted">'+esc(t.prompt)+"</div>"+(n.stem?'<div class="nvstem">'+n.stem+"</div>":"")+nvOpts(n,{reveal:!0,pick:null})+'<div class="tip what" style="border-left-color:var(--ok)"><b style="color:var(--ok)">✅ The answer is '+"ABCDE"[n.ans]+"</b>"+nvList(n.why)+'</div><button class="kbtn" style="margin-top:14px" data-nv="begin">🚀 Let\'s go!</button></div><p class="small muted">The puzzles start easy and get trickier. You will not be told if answers are right until the end.</p>'}function nvBreakScreen(){return topbar()+'<h1>🍎 Part 1 done!</h1><div class="kcard"><p style="font-size:18px;margin-top:0">Brilliant focus. Time for a stretch and a drink if you want one.</p><p>Part 2 has three more puzzle types. You can carry on now, or come back later - your answers are saved.</p><button class="kbtn" data-nv="cont">▶️ Keep going</button><div style="height:10px"></div><button class="kbtn ghost" data-nv="later">💾 Save and finish later</button></div>'}function nvItemScreen(e,t){const s=nvT(t),n=nvCurItem(e,t).item,a=NV_TYPES.findIndex(e=>e.id===t)<3?1:2;return topbar()+'<div class="nvhead">Part '+a+" of 2 &middot; "+nvName(t)+" "+s.em+'</div><div class="kcard"><div class="nvprompt">'+esc(s.prompt)+"</div>"+(n.stem?'<div class="nvstem">'+n.stem+"</div>":"")+nvOpts(n,{sel:nvUI.pick,interactive:!0})+'<div class="nvbtns"><button class="kbtn ghost" data-nv="unsure">🤔 I\'m not sure</button><button class="kbtn" data-nv="confirm"'+(null==nvUI.pick?" disabled":"")+'>✅ That\'s my answer</button></div></div><p class="small muted">Do your best. If it feels too tricky, tap "I\'m not sure" - that is fine!</p><button class="link" data-nv="later">Save and finish later</button>'}function nvGrown(e){const t=nvAnalyse(e),s=nvPlan(t),n=nvLastDone(1)&&nvLastDone(1)!==e?nvLastDone(1):null,a=n?nvAnalyse(n):null;let o='<p class="sub">Completed '+new Date(e.end).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})+" &middot; "+e.items.length+" puzzles &middot; about "+Math.max(1,Math.round(e.items.reduce((e,t)=>e+t.ms,0)/6e4))+" min of puzzle time</p>";return o+='<div class="card"><b>Where to start</b><div class="small" style="margin-top:6px">Warm-up with <b>'+esc(nvT(s.warm).name)+"</b> (strongest). Then focus on "+s.focus.map(e=>"<b>"+esc(nvT(e).name)+"</b>").join(", ")+"."+(s.keep.length?" Keep ticking over: "+s.keep.map(e=>esc(nvT(e).name)).join(", ")+".":"")+"</div></div>",NV_TYPES.forEach(e=>{const s=t[e.id],n=(s.n&&Math.round(100*s.ok/s.n),s.eff>=3?"var(--ok)":2===s.eff?"var(--blank)":"var(--bad)"),r=Object.keys(s.errs).sort((e,t)=>s.errs[t]-s.errs[e]).slice(0,2).map(e=>e+" ("+s.errs[e]+")").join(", "),i=a?s.eff>a[e.id].eff?' <span class="up">&#9650; from '+a[e.id].eff+"</span>":s.eff<a[e.id].eff?' <span class="down">&#9660; from '+a[e.id].eff+"</span>":' <span class="muted">(unchanged)</span>':"";o+='<div class="card"><div class="row"><b>'+e.em+" "+esc(e.name)+'</b><b style="color:'+n+'">Level '+s.eff+" of 4"+i+'</b></div><div class="meter"><i style="width:'+25*s.eff+"%;background:"+n+'"></i></div><div class="small"><b>'+NVLEV[s.eff]+"</b>"+(s.stretch?" &middot; tried one stretch puzzle correctly (needs two to count)":"")+'</div><div class="small muted" style="margin-top:4px">'+s.ok+" of "+s.n+" correct &middot; median "+nvSecs(s.med)+" per puzzle"+(s.skips?" &middot; "+s.skips+' "not sure"':"")+"</div>"+(r?'<div class="small" style="margin-top:4px">Slips to watch: '+esc(r)+"</div>":"")+'<div class="small muted" style="margin-top:4px">Format reference: '+esc(e.src)+"</div></div>"}),o+='<h2>Suggested practice</h2><div class="card"><div class="small">Start each area at the level shown (never below Level 1). Short sessions of about 10 minutes, a few times a week, usually work better for this age than long ones. Retest in a few weeks with fresh puzzles to see progress.</div><div class="stats" style="grid-template-columns:repeat(2,1fr)">'+[s.warm].concat(s.focus).concat(s.keep).map(e=>'<button class="chip" data-nv="practice" data-v="'+e+'">'+nvT(e).em+" "+esc(nvT(e).name)+" - L"+Math.max(1,nv.start[e]||t[e].eff)+"</button>").join("")+"</div></div>",o+='<div class="foot"><button data-nv="review">'+(nvUI.review?"Hide":"Review")+' every puzzle</button><button data-nv="start">Retest with new puzzles</button></div>',o+='<div class="foot" style="margin-top:8px"><button data-nv="export">Export puzzle log (CSV)</button><button data-nv="reset">Reset reasoning data</button></div>',nvUI.review&&(o+=nvReview(e)),o+='<details class="card" style="margin-top:14px"><summary><b>How this check-up works, and its limits</b></summary><div class="small" style="margin-top:8px"><div>&bull; Six non-verbal reasoning types, each a four-level ladder: Warm-up, Core, Challenge, Stretch (11+ style). Types and formats follow the published CAT4 non-verbal descriptions and common 11+ question types.</div><div>&bull; Each type starts at Level 1 and moves up after a correct answer. A miss gets one retry with a new puzzle at the same level. Two misses in a row stops that type, so she is never stuck on puzzles that are too hard.</div><div>&bull; Level 4 needs two correct answers to count, because with five options one correct answer can be a guess. "Not sure" counts as a miss.</div><div>&bull; Untimed by design, with each puzzle time recorded. No feedback is shown during the check-up. A break is offered halfway.</div><div>&bull; Limits: this is about 15-25 puzzles in total, so treat levels as a starting point, not a score. Difficulty levels are my own design, not calibrated against norms. All puzzles are original, in the style of those formats, and are not real test items. It does not predict test results or banding.</div></div></details>',o}function nvKidResults(e){const t=nvAnalyse(e),s=nvPlan(t);let n="<h1>"+(nvUI.justDone?"Check-up complete! 🎉":"My Explorer Map 🗺️")+'</h1><p class="sub">Look what you found out about your brain power!</p>';return NV_TYPES.forEach(e=>{const s=t[e.id];n+='<div class="kcard"><div class="row"><b>'+e.em+" "+esc(e.kid)+'</b><span class="stars" style="margin:0;font-size:18px">'+"⭐".repeat(s.eff)+'<span class="dim">'+"⭐".repeat(4-s.eff)+'</span></span></div><div class="small">'+NVLEVK[s.eff]+"</div></div>"}),n+='<h2>🎯 Your quest plan</h2><div class="kcard"><div class="small" style="margin-bottom:8px">Start with a warm-up you are good at, then power up the rest!</div>',n+='<button class="kbtn" data-nv="practice" data-v="'+s.warm+'">🔥 Warm-up: '+nvT(s.warm).em+" "+esc(nvT(s.warm).kid)+"</button>",s.focus.forEach(e=>{n+='<div style="height:10px"></div><button class="kbtn alt" data-nv="practice" data-v="'+e+'">🌱 Power up: '+nvT(e).em+" "+esc(nvT(e).kid)+"</button>"}),n+='</div><p class="small muted">Try the check-up again in a few weeks and watch your stars grow!</p>',n}function nvReview(e){let t="<h2>Every puzzle</h2>";return e.items.forEach((s,n)=>{const a=nvGen(s.t,s.l,nvSeed(e.seed,s.t,s.l,s.k)),o=nvT(s.t);t+='<div class="card"><div class="row"><b>'+(n+1)+". "+o.em+" "+esc(o.name)+" &middot; "+NVLTXT[s.l]+'</b><span class="badge '+(s.ok?"Correct":s.skip?"Blank":"Wrong")+'">'+(s.ok?"Correct":s.skip?"Not sure":"Wrong")+'</span></div><div class="small muted">'+nvSecs(s.ms)+(s.ok||s.skip?"":" &middot; "+esc(TAGCAT[s.tag]||"other"))+"</div>"+(a.stem?'<div class="nvstem">'+a.stem+"</div>":"")+nvOpts(a,{reveal:!0,pick:s.pi})+'<div class="tip"><b>The rule</b>'+nvList(a.why)+"</div></div>"}),t}function nvCSV(){const e=e=>'"'+String(null==e?"":e).replace(/"/g,'""')+'"',t=[["Run","Date","Type","Level","Instance","Result","Seconds","Wrong-pick style"].map(e).join(",")];nv.runs.forEach(s=>s.items.forEach(n=>t.push([s.id,new Date(s.start).toISOString().slice(0,10),nvT(n.t).name,n.l,n.k+1,n.ok?"Correct":n.skip?"Not sure":"Wrong",Math.round(n.ms/1e3),n.ok?"":TAGCAT[n.tag]||n.tag].map(e).join(","))));const s=new Blob([t.join("\n")],{type:"text/csv"}),n=document.createElement("a");n.href=URL.createObjectURL(s),n.download="reasoning_log.csv",document.body.appendChild(n),n.click(),n.remove()}function nvPracticeStart(e){const t=nvLastDone(),s=t?nvAnalyse(t):null,n=Math.max(1,Math.min(4,nv.start[e]||(s?s[e].eff:1)||1));nvUI.pr={type:e,lvl:n,n:0,ok:0,k:0,seed:Date.now()%2147483647>>>0,fb:!1,item:null,pick:null,hint:!1,up:0,down:0,done:!1},nvUI.screen="practice"}function nvPracticeItem(e){const t=e.type+"-"+e.lvl+"-"+e.k;return e.item&&e.item.key===t||(e.item={key:t,it:nvGen(e.type,e.lvl,hash32(e.seed,"pr",e.type,e.lvl,e.k))}),e.item.it}function nvPracticeView(){const e=nvUI.pr;if(!e)return nvUI.screen="home",nvView();const t=nvT(e.type);if(e.done){const s=e.ok>=5?"Wow - brilliant! 🌟":e.ok>=3?"Great effort! 💪":"Good try - every puzzle makes you stronger! 🌱";return topbar()+"<h1>"+t.em+' Round done!</h1><div class="kcard"><div class="kmid">'+e.ok+" right out of "+e.n+"</div><p>"+s+'</p><p class="small">Next time you will start at <b>Level '+e.lvl+"</b> ("+NVLTXT[e.lvl]+').</p><button class="kbtn" data-nv="practice" data-v="'+e.type+'">🔁 Another round</button><div style="height:10px"></div><button class="kbtn ghost" data-nv="pend">🗺️ Back to my map</button></div>'}const s=nvPracticeItem(e);let n=topbar()+'<div class="nvhead">Practice &middot; '+nvName(e.type)+" "+t.em+" &middot; Level "+e.lvl+" ("+NVLTXT[e.lvl]+") &middot; puzzle "+(e.n+1)+' of 6</div><div class="kcard"><div class="nvprompt">'+esc(t.prompt)+"</div>"+(s.stem?'<div class="nvstem">'+s.stem+"</div>":"")+nvOpts(s,{sel:e.pick,interactive:!e.fb,reveal:e.fb,pick:e.pick});if(e.fb){const t=e.pick===s.ans;n+='<div class="ansbox" style="'+(t?"":"background:var(--blank-bg);color:var(--blank)")+'">'+(t?"🎉 Yes! Well done!":"Not quite - have a look at the trick below 👇")+'</div><div class="tip"><b>🔎 The rule</b>'+nvList(s.why)+'</div><button class="kbtn" style="margin-top:12px" data-nv="pnext">'+(e.n+1>=6?"🏁 Finish round":"➡️ Next puzzle")+"</button>"}else e.hint&&(n+='<div class="tip"><b>💡 Hint</b>'+nvList(s.hint)+'<button class="hidebtn" data-nv="phide">🙈 Hide hint</button></div>'),n+='<div class="nvbtns">'+(e.hint?"":'<button class="kbtn ghost" data-nv="phint">💡 Hint</button>')+'<button class="kbtn" data-nv="pcheck"'+(null==e.pick?" disabled":"")+">✅ Check</button></div>";return n+'</div><button class="link" data-nv="pend">Leave practice</button>'}function nvPracticeAfter(){const e=nvUI.pr,t=nvPracticeItem(e),s=e.pick===t.ans;nv.practice.push({t:e.type,l:e.lvl,ok:s,ts:Date.now()}),nv.practice.length>600&&(nv.practice=nv.practice.slice(-600)),e.n++,e.k++,s?(e.ok++,e.up++,e.down=0,e.up>=2&&e.lvl<4&&(e.lvl++,e.up=0)):(e.down++,e.up=0,e.down>=2&&e.lvl>1&&(e.lvl--,e.down=0)),e.fb=!1,e.pick=null,e.hint=!1,e.item=null,e.n>=6&&(e.done=!0,nv.start[e.type]=e.lvl),nvSave()}function nvStartCard(){return"kid"===mode?'<div class="kcard hero"><div class="lvl" style="font-size:20px;font-weight:800">🧭 Explorer Check-up</div><p class="kmsg" style="font-size:17px">Let\'s find your starting point on the brain-power map!</p><div class="small" style="margin-bottom:12px;color:#fff;opacity:.95">6 puzzle types &middot; about 15 minutes &middot; 2 parts. No pass or fail - it just shows us where to start. It starts easy and gets trickier. If a puzzle is too tricky, tap "I\'m not sure".</div><button class="kbtn" data-nv="start">🚀 Start the check-up</button></div>':'<div class="card"><b>Starting-point assessment</b><div class="small" style="margin:6px 0 10px">Six non-verbal reasoning types, adaptive four-level ladder per type, about 15-25 puzzles in two sittings. Untimed, with no feedback during the test. It produces a level per type and a practice plan.</div><button class="kbtn alt" data-nv="start">Start the check-up</button></div>'}function nvHome(){const e=nvRun(),t=nvLastDone(),s="kid"===mode;let n=topbar()+(s?'<h1>Side quests 🗺️</h1><p class="sub">Brain-power puzzles for sharp thinkers!</p>':'<h1>Reasoning check-up</h1><p class="sub">Non-verbal reasoning &middot; starting point and practice plan</p>');if(e){nvStep(e);const t=e.items.length;n+='<div class="kcard hero"><div class="lvl" style="font-size:19px;font-weight:800">🧭 Check-up in progress</div><p class="kmsg">'+(s?"You have done "+t+" puzzle"+(1===t?"":"s")+" so far. Ready to carry on?":t+" puzzles answered so far.")+'</p><button class="kbtn" data-nv="resume">▶️ Continue</button></div>'}else t||(n+=nvStartCard());return t&&(n+=s?nvKidResults(t):nvGrown(t)),n}function nvView(){if("practice"===nvUI.screen)return nvPracticeView();if("run"===nvUI.screen){const e=nvRun();if(!e)return nvUI.screen="home",nvHome();const t=nvStep(e);if("intro"===t.screen)return nvIntroScreen(t.type);if("break"===t.screen)return nvBreakScreen();if("item"===t.screen)return nvItemScreen(e,t.type);nvUI.screen="home"}return nvHome()}function nvAct(e,t){const s=()=>{window.scrollTo(0,0),render()},n=nvRun(),a=nvUI.pr;switch(e){case"start":return nvNew(),s();case"resume":return nvUI.screen="run",nvUI.cur=null,s();case"begin":if(n){const e=nvStep(n);"intro"===e.screen&&(n.intro[e.type]=!0,nvSave(),nvUI.cur=null)}return s();case"cont":return n&&(n.breakSeen=!0,nvSave()),s();case"later":return nvUI.screen="home",nvUI.cur=null,s();case"pick":return"practice"===nvUI.screen&&a?a.fb||(a.pick=+t):nvUI.pick=+t,render();case"confirm":return n&&null!=nvUI.pick&&(nvRecord(n,!1),n.end&&(nvUI.justDone=!0,nvUI.screen="home")),s();case"unsure":return n&&(nvRecord(n,!0),n.end&&(nvUI.justDone=!0,nvUI.screen="home")),s();case"practice":return nvPracticeStart(t),s();case"phint":return a&&(a.hint=!0),render();case"phide":return a&&(a.hint=!1),render();case"pcheck":return a&&null!=a.pick&&(a.fb=!0),render();case"pnext":return a&&nvPracticeAfter(),s();case"pend":return nvUI.screen="home",nvUI.pr=null,s();case"review":return nvUI.review=!nvUI.review,render();case"export":return nvCSV();case"reset":return void(confirm("Delete all check-up results and practice history on this device?")&&(nv={runs:[],practice:[],start:{}},nvSave(),nvUI={screen:"home",pick:null,cur:null,pr:null,review:!1,justDone:!1},render()))}}document.addEventListener("click",e=>{const t=e.target.closest("button, .q");if(t){if(t.dataset.nv)return nvAct(t.dataset.nv,t.dataset.v);if(t.dataset.mode)return mode="kid"===mode?"parent":"kid",saveMode(),tab="overview",window.scrollTo(0,0),render();if(t.dataset.tab)return tab=t.dataset.tab,window.scrollTo(0,0),render();if(t.dataset.kgo)return K={f:t.dataset.kgo,s:"all"},tab="questions",window.scrollTo(0,0),render();if(t.dataset.ks)return K={f:t.dataset.kf||"todo",s:t.dataset.ks},tab="questions",window.scrollTo(0,0),render();if(t.dataset.kf)return K.f=t.dataset.kf,render();if(t.dataset.hint)return hints.add(t.dataset.hint),render();if(t.dataset.unhint)return hints.delete(t.dataset.unhint),render();if(t.dataset.show)return shown.add(t.dataset.show),render();if(t.dataset.conq)return conq.add(t.dataset.conq),saveConq(),toast("🎉 Mission conquered! +1 ⭐"),render();if(t.dataset.unconq)return conq.delete(t.dataset.unconq),shown.delete(t.dataset.unconq),hints.delete(t.dataset.unconq),saveConq(),render();if(t.dataset.go)return F={a:"all",r:"all",s:"all",sec:"all"},"a"===t.dataset.go?F.a=t.dataset.v:F.s=t.dataset.v,F.r=t.dataset.r||"all",tab="questions",window.scrollTo(0,0),render();if(t.dataset.f)return F[t.dataset.f]=t.dataset.v,render();if(t.dataset.clear)return F={a:"all",r:"all",s:"all",sec:"all"},render();if(t.dataset.set){const e=t.dataset.id,s=DATA.find(t=>qid(t)===e);return t.dataset.set===s.r?delete overrides[e]:overrides[e]=t.dataset.set,save(),render()}return t.dataset.hide?(hideAns=!hideAns,revealed.clear(),render()):t.dataset.reveal?(revealed.add(t.dataset.reveal),render()):t.dataset.export?csv():void(t.dataset.reset?confirm("Reset all your edits back to the original results?")&&(overrides={},save(),render()):t.dataset.resetkid?confirm("Reset her Kid-mode progress (conquered missions)?")&&(conq.clear(),hints.clear(),shown.clear(),saveConq(),render()):t.classList.contains("q")&&t.classList.toggle("open"))}}),document.addEventListener("change",e=>{e.target.dataset.sel&&(F[e.target.dataset.sel]=e.target.value,render()),e.target.dataset.ksel&&(K.s=e.target.value,render())}),render();try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}try{"serviceWorker"in navigator&&/^https?:/.test(location.protocol)&&navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
+/* Maths Tracker app logic. Needs data.js loaded first (DATA, ATT). */
+const KEY = "mm3_overrides_v1", CKEY = "mm3_conquered_v1", MKEY = "mm3_mode_v1";
+let overrides = {};
+try { overrides = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(e) { overrides = {}; }
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(overrides)); } catch(e) {} }
+let conq = new Set();
+try { conq = new Set(JSON.parse(localStorage.getItem(CKEY) || "[]")); } catch(e) { conq = new Set(); }
+function saveConq(){ try { localStorage.setItem(CKEY, JSON.stringify([...conq])); } catch(e) {} }
+let mode = "parent";
+try { mode = localStorage.getItem(MKEY) === "kid" ? "kid" : "parent"; } catch(e) {}
+function saveMode(){ try { localStorage.setItem(MKEY, mode); } catch(e) {} }
+
+const qid = d => d.a + "-" + d.t + "-" + d.p + "-" + d.q;
+const res = d => overrides[qid(d)] || d.r;
+const isTodo = d => res(d) === "Wrong" || res(d) === "Blank";
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const pct = (n, t) => t ? Math.round(n * 100 / t) : 0;
+const attempts = [...new Set(DATA.map(d => d.a))].sort((x, y) => x - y);
+const skills = [...new Set(DATA.map(d => d.s))].sort();
+const sections = [...new Set(DATA.map(d => d.t + " " + d.p))];
+const KS = {
+  "Place value & words":["🧙","Place Value Wizard"], "Number operations":["🥷","Number Ninja"],
+  "Brackets & order":["🧠","Brackets Boss"], "Missing numbers":["🔍","Mystery Number Hunter"],
+  "Units & measures":["📏","Measuring Master"], "Money":["💰","Money Master"],
+  "Time":["⏰","Time Traveller"], "Fractions":["🍕","Fraction Hero"],
+  "Rounding":["🏁","Rounding Racer"], "Other":["🎁","Bonus Challenges"]
+};
+const kname = s => KS[s] || ["🎁", s];
+
+let tab = "overview";
+let hideAns = false;
+const revealed = new Set();
+let F = { a: "all", r: "all", s: "all", sec: "all" };
+let K = { f: "todo", s: "all" };
+const hints = new Set(), shown = new Set();
+
+function mins(a){
+  const m = ATT[a]; if (!m || !m.start || !m.end) return null;
+  const f = x => { const [h, mm] = x.split(":").map(Number); return h * 60 + mm; };
+  let d = f(m.end) - f(m.start); if (d < 0) d += 720; return d;
+}
+function tally(rows){
+  const t = { Correct: 0, Wrong: 0, Blank: 0, n: rows.length };
+  rows.forEach(d => { t[res(d)]++; });
+  return t;
+}
+function topbar(){
+  return '<div class="topbar"><button class="modebtn" data-mode="1">' + (mode === "kid" ? "👤 Grown-up mode" : "🎮 Kid mode") + '</button></div>';
+}
+
+/* ================= Grown-up mode ================= */
+function overview(){
+  let h = topbar() + '<h1>Maths tracker</h1><p class="sub">Schofield &amp; Sims Mental Arithmetic 3 &middot; timed attempts</p>';
+  let prev = null;
+  attempts.forEach(a => {
+    const rows = DATA.filter(d => d.a === a), t = tally(rows), p = pct(t.Correct, t.n), m = mins(a);
+    const secq = m != null ? Math.round(m * 60 / t.n) : null;
+    let delta = "";
+    if (prev !== null){ const dd = p - prev; delta = '<span class="' + (dd >= 0 ? "up" : "down") + '">' + (dd >= 0 ? "+" : "") + dd + ' pts</span> <span class="muted small">vs previous</span>'; }
+    prev = p;
+    h += '<div class="card"><div class="row"><div><span class="pill">Attempt ' + a + '</span> <span class="small muted">' + esc((ATT[a] || {}).label || "") + '</span></div><div>' + delta + '</div></div>'
+      + '<div class="row" style="margin-top:8px"><div class="big">' + p + '%</div><div class="muted">' + t.Correct + ' of ' + t.n + ' correct</div></div>'
+      + '<div class="bar"><i class="seg-ok" style="width:' + pct(t.Correct, t.n) + '%"></i><i class="seg-bad" style="width:' + pct(t.Wrong, t.n) + '%"></i><i class="seg-blank" style="width:' + pct(t.Blank, t.n) + '%"></i></div>'
+      + '<div class="legend"><span><i class="dot seg-ok"></i>' + t.Correct + ' correct</span><span><i class="dot seg-bad"></i>' + t.Wrong + ' wrong</span><span><i class="dot seg-blank"></i>' + t.Blank + ' blank</span></div>'
+      + '<div class="stats"><div class="stat"><span class="small muted">Time</span><b>' + (m != null ? m + ' min' : '&ndash;') + '</b></div>'
+      + '<div class="stat"><span class="small muted">Per question</span><b>' + (secq != null ? secq + ' s' : '&ndash;') + '</b></div>'
+      + '<div class="stat"><span class="small muted">Questions</span><b>' + t.n + '</b></div></div>'
+      + '<div class="foot" style="margin-top:12px"><button data-go="a" data-v="' + a + '" data-r="Wrong,Blank">Review mistakes</button></div></div>';
+  });
+  const lost = skills.map(s => { const r = DATA.filter(d => d.s === s); const t = tally(r); return { s, lost: t.Wrong + t.Blank, n: t.n }; })
+    .filter(x => x.lost > 0).sort((x, y) => y.lost - x.lost).slice(0, 4);
+  h += '<h2>Where marks were lost</h2><div class="card">';
+  lost.forEach(x => {
+    h += '<button class="skill" style="margin:0 0 8px;border:0;padding:6px 0;border-bottom:1px solid var(--line);border-radius:0" data-go="s" data-v="' + esc(x.s) + '" data-r="Wrong,Blank"><div class="row"><b>' + esc(x.s) + '</b><span class="muted">' + x.lost + ' of ' + x.n + ' lost</span></div></button>';
+  });
+  const todo = DATA.filter(isTodo), done = todo.filter(d => conq.has(qid(d))).length;
+  h += '</div><p class="small muted">Tap any item to see those questions. Blank = skipped (she circles these).</p>';
+  h += '<p class="small muted">Her practice progress (Kid mode): ' + done + ' of ' + todo.length + ' missions conquered.</p>';
+  return h;
+}
+
+function filtered(){
+  return DATA.filter(d => {
+    if (F.a !== "all" && String(d.a) !== String(F.a)) return false;
+    if (F.s !== "all" && d.s !== F.s) return false;
+    if (F.sec !== "all" && (d.t + " " + d.p) !== F.sec) return false;
+    if (F.r !== "all" && !F.r.split(",").includes(res(d))) return false;
+    return true;
+  });
+}
+function chip(group, val, label){
+  return '<button class="chip' + (String(F[group]) === String(val) ? " on" : "") + '" data-f="' + group + '" data-v="' + esc(val) + '">' + label + '</button>';
+}
+function questions(){
+  const rows = filtered();
+  let h = topbar() + '<div class="filters">';
+  h += '<div class="chips">' + chip("a", "all", "All attempts") + attempts.map(a => chip("a", a, "Attempt " + a)).join("") + '</div>';
+  h += '<div class="chips">' + chip("r", "all", "All") + chip("r", "Correct", "Correct") + chip("r", "Wrong", "Wrong") + chip("r", "Blank", "Blank") + chip("r", "Wrong,Blank", "Needs review") + '</div>';
+  h += '<div class="sel"><select data-sel="sec"><option value="all">All sections</option>' + sections.map(s => '<option' + (F.sec === s ? " selected" : "") + '>' + s + '</option>').join("") + '</select>';
+  h += '<select data-sel="s"><option value="all">All skills</option>' + skills.map(s => '<option' + (F.s === s ? " selected" : "") + '>' + esc(s) + '</option>').join("") + '</select></div>';
+  const t = tally(rows);
+  h += '<div class="count"><span>Showing ' + rows.length + ' of ' + DATA.length + (rows.length ? ' &middot; ' + pct(t.Correct, t.n) + '% correct' : '') + '</span><span><button class="link" data-hide="1">Hide answers: ' + (hideAns ? 'on' : 'off') + '</button> &nbsp; <button class="link" data-clear="1">Clear filters</button></span></div></div>';
+  if (!rows.length) h += '<div class="empty">No questions match these filters.</div>';
+  rows.forEach(d => {
+    const r = res(d), id = qid(d), hid = hideAns && !revealed.has(id);
+    const ed = (overrides[id] ? '<span class="edited">edited</span>' : "") + (conq.has(id) ? '<span class="edited">practised ✓</span>' : "");
+    h += '<div class="q ' + r + '" data-id="' + id + '"><div class="top"><span class="tag">A' + d.a + ' &middot; ' + d.t + ' ' + d.p + ' &middot; Q' + d.q + ' &middot; ' + esc(d.s) + '</span><span><span class="badge ' + r + '">' + r + '</span>' + ed + '</span></div>'
+      + (d.k ? '<div class="qtext">' + esc(d.k) + '</div>' : '')
+      + (d.img ? '<div class="qimg">' + d.img + '</div>' : '')
+      + '<div class="ans"><div><span>Her answer</span>' + (d.h ? esc(d.h) : "&mdash; blank") + '</div><div><span>Correct</span>' + (hid ? '<button class="reveal" data-reveal="' + id + '">Tap to reveal</button>' : esc(d.c)) + '</div></div>'
+      + (d.n && !hid ? '<div class="note">' + esc(d.n) + '</div>' : '')
+      + (d.wp && !hid ? '<div class="tip what"><b>What she did and why it was not quite right</b>' + d.wp.split('\n').map(x => '<div>' + esc(x) + '</div>').join('') + '</div>' : '')
+      + (d.m && !hid ? '<div class="tip"><b>How to work it out</b>' + d.m.split('\n').map(x => '<div>' + esc(x) + '</div>').join('') + '</div>' : '')
+      + '<div class="edit">' + ["Correct", "Wrong", "Blank"].map(x => '<button class="' + (r === x ? "cur" : "") + '" data-set="' + x + '" data-id="' + id + '">' + x + '</button>').join("") + '</div></div>';
+  });
+  h += '<div class="foot"><button data-export="1">Export CSV</button><button data-reset="1">Reset my edits</button></div>';
+  h += '<div class="foot" style="margin-top:8px"><button data-resetkid="1">Reset her Kid-mode progress</button></div>';
+  h += '<p class="small muted">Tap a question to change its result. Edits stay on this device only.</p>';
+  return h;
+}
+
+function skillsView(){
+  let h = topbar() + '<h1>Skills</h1><p class="sub">Accuracy by topic. Tap one to see its questions.</p>';
+  skills.forEach(s => {
+    const rows = DATA.filter(d => d.s === s), t = tally(rows), p = pct(t.Correct, t.n);
+    const col = p >= 75 ? "var(--ok)" : p >= 50 ? "var(--blank)" : "var(--bad)";
+    const per = attempts.map(a => { const r = rows.filter(d => d.a === a); if (!r.length) return ""; const tt = tally(r); return '<span class="pill">A' + a + ' ' + pct(tt.Correct, tt.n) + '%</span>'; }).join(" ");
+    h += '<button class="skill" data-go="s" data-v="' + esc(s) + '" data-r="all"><div class="row"><b>' + esc(s) + '</b><b style="color:' + col + '">' + p + '%</b></div>'
+      + '<div class="meter"><i style="width:' + p + '%;background:' + col + '"></i></div>'
+      + '<div class="row small muted"><span>' + t.Correct + ' of ' + t.n + ' correct' + (t.Blank ? ' &middot; ' + t.Blank + ' blank' : '') + '</span><span>' + per + '</span></div></button>';
+  });
+  return h;
+}
+
+/* ================= Kid mode ================= */
+function skillStats(){
+  return skills.map(s => { const t = tally(DATA.filter(d => d.s === s)); return { s, n: t.n, ok: t.Correct, p: pct(t.Correct, t.n), lost: t.Wrong + t.Blank }; });
+}
+function kidOverview(){
+  const todo = DATA.filter(isTodo), T = todo.length, c = todo.filter(d => conq.has(qid(d))).length;
+  const titles = ["Maths Explorer 🧭", "Number Ninja 🥷", "Brain Booster 🧠", "Maths Wizard 🧙", "Maths Legend 🏆"];
+  const stage = T && c >= T ? 4 : T ? Math.floor(c * 4 / T) : 0;
+  const msg = !T ? "No missions right now - amazing! 🎉" : c === 0 ? "Your first mission is waiting!" : c < T ? (T - c) + " to go - you've got this!" : "Every mission conquered! You're a legend!";
+  let h = topbar() + '<h1>Hi superstar! 🌟</h1><p class="sub">Ready to beat your best?</p>';
+  h += '<div class="kcard hero"><div class="row"><span class="lvl">' + titles[stage] + '</span><span>⭐ ' + c + '</span></div>'
+    + '<div class="kbig">' + c + ' <small>of ' + T + '</small></div><div>missions conquered</div>'
+    + '<div class="kprog"><i style="width:' + pct(c, T) + '%"></i></div><p class="kmsg">' + msg + '</p>'
+    + (c < T ? '<button class="kbtn" data-kgo="todo">🚀 Start a mission</button>' : '<button class="kbtn" data-kgo="done">🏆 See my trophies</button>') + '</div>';
+  h += '<h2>My rounds</h2>';
+  let prev = null;
+  attempts.forEach(a => {
+    const t = tally(DATA.filter(d => d.a === a)), p = pct(t.Correct, t.n), m = mins(a);
+    const secq = m != null ? Math.round(m * 60 / t.n) : null;
+    const stars = Math.max(1, Math.round(p / 20));
+    let note = "";
+    if (prev !== null) note = p > prev ? "📈 Up " + (p - prev) + "% since last round!" : "💪 Keep practising - every round makes you stronger!";
+    prev = p;
+    h += '<div class="kcard"><div class="row"><b>Round ' + a + '</b><span class="small muted">' + esc((ATT[a] || {}).label || "") + '</span></div>'
+      + '<div class="kmid">' + t.Correct + ' right out of ' + t.n + '!</div>'
+      + '<div class="stars">' + "⭐".repeat(stars) + '<span class="dim">' + "⭐".repeat(5 - stars) + '</span></div>'
+      + (secq != null ? '<div class="small">⏱️ About ' + secq + ' seconds per question</div>' : '')
+      + (note ? '<div class="small" style="margin-top:4px">' + note + '</div>' : '') + '</div>';
+  });
+  const st = skillStats();
+  const best = st.filter(x => x.n >= 2 && x.p >= 60).sort((x, y) => y.p - x.p || y.n - x.n).slice(0, 3);
+  const next = st.filter(x => x.lost > 0).sort((x, y) => y.lost - x.lost).slice(0, 2);
+  if (best.length){
+    h += '<h2>⚡ My best superpowers</h2><div class="kchips">' + best.map(x => '<button class="kchip" data-ks="' + esc(x.s) + '" data-kf="all">' + kname(x.s)[0] + ' ' + esc(kname(x.s)[1]) + '</button>').join("") + '</div>';
+  }
+  if (next.length){
+    h += '<h2>🌱 Ready to power up</h2><div class="kchips">' + next.map(x => '<button class="kchip" data-ks="' + esc(x.s) + '" data-kf="todo">' + kname(x.s)[0] + ' ' + esc(kname(x.s)[1]) + '</button>').join("") + '</div>';
+  }
+  return h;
+}
+
+function kidFiltered(){
+  return DATA.filter(d => {
+    if (K.s !== "all" && d.s !== K.s) return false;
+    if (K.f === "todo") return isTodo(d) && !conq.has(qid(d));
+    if (K.f === "done") return isTodo(d) && conq.has(qid(d));
+    return true;
+  });
+}
+function kidCard(d){
+  const id = qid(d), sk = kname(d.s), tag = "Round " + d.a + " · " + d.t + " " + d.p + " · Q" + d.q;
+  if (!isTodo(d)){
+    return '<div class="kq"><div class="top"><span class="tag">' + tag + '</span><span class="badge Correct">Nailed it ✅</span></div>'
+      + '<div class="small muted" style="margin-top:6px">' + sk[0] + ' ' + esc(sk[1]) + ' - you wrote: <b>' + esc(d.h) + '</b></div></div>';
+  }
+  const done = conq.has(id), showAns = shown.has(id) || done;
+  const wrote = d.h ? 'You wrote: <b>' + esc(d.h) + '</b>' : "You skipped this one - have a go now! 💪";
+  const tip = d.m2 || d.m, hint = d.h2 || tip;
+  let h = '<div class="kq' + (done ? " done" : "") + '"><div class="top"><span class="tag">' + tag + '</span>' + (done ? '<span class="badge Correct">🏆 Conquered</span>' : "") + '</div>'
+    + '<div class="small muted" style="margin-top:6px">' + sk[0] + ' ' + esc(sk[1]) + '</div>'
+    + '<div class="qtext">' + esc(d.k) + '</div>' + (d.img ? '<div class="qimg">' + d.img + '</div>' : '') + '<div class="small">' + wrote + '</div>';
+  if (hints.has(id) && !showAns && hint) h += '<div class="tip"><b>💡 Hint - have another go!</b>' + hint.split("\n").map(x => '<div>' + esc(x) + '</div>').join("") + '<button class="hidebtn" data-unhint="' + id + '">🙈 Hide hint</button></div>';
+  if (showAns) h += '<div class="ansbox">✅ The answer is: <b>' + esc(d.c) + '</b></div>';
+  if (showAns && d.w) h += '<div class="tip what"><b>🔎 What happened</b>' + d.w.split("\n").map(x => '<div>' + esc(x) + '</div>').join("") + '</div>';
+  if (showAns && tip) h += '<div class="tip"><b>✏️ How it works</b>' + tip.split("\n").map(x => '<div>' + esc(x) + '</div>').join("") + '</div>';
+  h += '<div class="row2">';
+  if (!done && !hints.has(id) && !shown.has(id)) h += '<button class="kbtn ghost" data-hint="' + id + '">💡 Hint</button>';
+  if (!done && !shown.has(id)) h += '<button class="kbtn ghost" data-show="' + id + '">👀 Show answer</button>';
+  if (!done && shown.has(id)) h += '<button class="kbtn" data-conq="' + id + '">🎉 I get it now!</button>';
+  if (done) h += '<button class="kbtn ghost" data-unconq="' + id + '">↩️ Put back in To do</button>';
+  h += '</div></div>';
+  return h;
+}
+function kidMissions(){
+  const rows = kidFiltered();
+  const todo = DATA.filter(isTodo), nTodo = todo.filter(d => !conq.has(qid(d))).length, nDone = todo.length - nTodo;
+  const kc = (v, label) => '<button class="kchip' + (K.f === v ? " on" : "") + '" data-kf="' + v + '">' + label + '</button>';
+  let h = topbar() + '<h1>Missions 🎯</h1><p class="sub">Have a go in your head first, then tap for help!</p>'
+    + '<div class="kchips">' + kc("todo", "🎯 To do (" + nTodo + ")") + kc("done", "✅ Conquered (" + nDone + ")") + kc("all", "📚 Everything") + '</div>'
+    + '<div class="sel" style="margin:12px 0 14px"><select data-ksel="1"><option value="all">All superpowers</option>'
+    + skills.map(s => '<option value="' + esc(s) + '"' + (K.s === s ? " selected" : "") + '>' + kname(s)[0] + ' ' + esc(kname(s)[1]) + '</option>').join("") + '</select></div>';
+  if (!rows.length){
+    h += '<div class="empty">' + (K.f === "todo" ? "🎉 No missions left here - you conquered them all!" : K.f === "done" ? "Nothing here yet - conquer a mission to see it here!" : "Nothing to show.") + '</div>';
+  }
+  rows.forEach(d => { h += kidCard(d); });
+  return h;
+}
+function kidSkills(){
+  let h = topbar() + '<h1>Superpowers ⚡</h1><p class="sub">Tap one to practise it!</p>';
+  skillStats().forEach(x => {
+    const nm = kname(x.s), stars = x.p >= 75 ? 3 : x.p >= 50 ? 2 : 1;
+    const label = x.p >= 75 ? "Superpower unlocked! ⚡" : x.p >= 50 ? "Getting strong 💪" : "Ready to level up 🌱";
+    const col = x.p >= 75 ? "var(--ok)" : x.p >= 50 ? "var(--blank)" : "var(--accent)";
+    h += '<button class="ksk" data-ks="' + esc(x.s) + '" data-kf="' + (x.lost > 0 ? "todo" : "all") + '"><div class="row"><span class="nm">' + nm[0] + ' ' + esc(nm[1]) + '</span><span class="stars" style="margin:0;font-size:18px">' + "⭐".repeat(stars) + '</span></div>'
+      + '<div class="meter"><i style="width:' + Math.max(x.p, 6) + '%;background:' + col + '"></i></div>'
+      + '<div class="row small"><span>' + x.ok + ' of ' + x.n + ' right</span><span>' + label + '</span></div></button>';
+  });
+  return h;
+}
+
+/* ================= shared ================= */
+function csv(){
+  const head = ["Attempt","Test","Part","Q","Skill","Her answer","Correct answer","Result","Note"];
+  const q = v => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
+  const lines = [head.map(q).join(",")].concat(DATA.map(d => [d.a, d.t, d.p, d.q, d.s, d.h, d.c, res(d), d.n].map(q).join(",")));
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "maths_tracker.csv"; document.body.appendChild(a); a.click(); a.remove();
+}
+function toast(msg){
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t);
+  setTimeout(() => t.remove(), 1800);
+}
+function render(){
+  const app = document.getElementById("app"), nav = document.getElementById("nav");
+  const y = window.scrollY, kid = mode === "kid";
+  document.documentElement.dataset.mode = mode;
+  app.innerHTML = kid ? (tab === "overview" ? kidOverview() : tab === "questions" ? kidMissions() : tab === "quests" ? nvView() : kidSkills())
+                      : (tab === "overview" ? overview() : tab === "questions" ? questions() : tab === "quests" ? nvView() : skillsView());
+  const labels = kid ? [["overview","🏠","Home"],["questions","🎯","Missions"],["skills","⚡","Superpowers"],["quests","🗺️","Side quests"]]
+                     : [["overview","■","Overview"],["questions","☰","Questions"],["skills","▲","Skills"],["quests","◈","Reasoning"]];
+  nav.innerHTML = labels.map(l => '<button data-tab="' + l[0] + '" class="' + (l[0] === tab ? "on" : "") + '"><b>' + l[1] + '</b>' + l[2] + '</button>').join("");
+  window.scrollTo(0, y);
+}
+
+/* ===================== Reasoning engine: puzzle generators ===================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function hash32(){let h=2166136261;for(const x of arguments){const s=String(x);for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}h^=124;h=Math.imul(h,16777619)}return h>>>0}
+const RI=(r,a,b)=>a+Math.floor(r()*(b-a+1));
+const PK=(r,a)=>a[Math.floor(r()*a.length)];
+function SHF(r,a){const b=a.slice();for(let i=b.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=b[i];b[i]=b[j];b[j]=t}return b}
+
+const FNAME=['white','light grey','dark'], ZNAME=['small','medium','big'];
+const SHN={sq:'square',cir:'circle',tri:'triangle',dia:'diamond',pent:'pentagon',hex:'hexagon',ell:'oval',arrow:'arrow',semi:'half-circle',flag:'flag'};
+const PG=(n,rad)=>Array.from({length:n},(_,i)=>{const a=(-90+360*i/n)*Math.PI/180;return (rad*Math.cos(a)).toFixed(2)+','+(rad*Math.sin(a)).toFixed(2)}).join(' ');
+const SHP={
+  sq:'<rect x="-.82" y="-.82" width="1.64" height="1.64"/>',
+  cir:'<circle r=".92"/>',
+  tri:'<polygon points="0,-.95 .95,.8 -.95,.8"/>',
+  dia:'<polygon points="0,-1 .85,0 0,1 -.85,0"/>',
+  pent:'<polygon points="'+PG(5,.97)+'"/>',
+  hex:'<polygon points="'+PG(6,.97)+'"/>',
+  arrow:'<polygon points="0,-1 .85,-.05 .32,-.05 .32,.95 -.32,.95 -.32,-.05 -.85,-.05"/>',
+  semi:'<path d="M-.95,.5 A.95,.95 0 0 1 .95,.5 Z"/>',
+  ell:'<ellipse rx=".98" ry=".6"/>',
+  flag:'<polygon points="-.55,-.95 -.35,-.95 .85,-.52 -.35,-.1 -.35,.95 -.55,.95"/>'
+};
+const SYMO={sq:90,dia:180,pent:72,hex:60,ell:180,cir:1,tri:360,arrow:360,semi:360,flag:360};
+const SZF=[.5,.72,.95];
+const NPOS={1:[[0,0]],2:[[-.52,0],[.52,0]],3:[[-.55,.38],[.55,.38],[0,-.5]],4:[[-.52,-.52],[.52,-.52],[-.52,.52],[.52,.52]],5:[[-.64,-.52],[0,-.52],[.64,-.52],[-.32,.52],[.32,.52]],6:[[-.64,-.52],[0,-.52],[.64,-.52],[-.64,.52],[0,.52],[.64,.52]]};
+const NSC={1:1,2:.5,3:.46,4:.42,5:.34,6:.34};
+const SVGO=(w,h,inner,cls)=>'<svg class="nv '+(cls||'')+'" viewBox="0 0 '+w+' '+h+'" role="img" aria-hidden="true">'+inner+'</svg>';
+const BOX=(x,y,w,h,dash)=>'<rect class="bx'+(dash?' dash':'')+'" x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9"/>';
+
+function fig(f,cx,cy,S){
+  const n=f.n||1, sz=f.sz==null?1:f.sz;
+  const one=(x,y,rad,withMk)=>{
+    const tr='translate('+x.toFixed(1)+' '+y.toFixed(1)+') rotate('+(f.rot||0)+') '+(f.mir?'scale(-1 1) ':'')+'scale('+rad.toFixed(2)+')';
+    return '<g class="nvf g'+(f.fi||0)+'" transform="'+tr+'">'+SHP[f.sh]+((withMk&&f.mk)?'<circle class="mk" cx="0" cy="-.5" r=".15"/>':'')+(f.dot?'<circle class="mk" r=".17"/>':'')+'</g>';
+  };
+  if(f.pos!=null){const P=[[-.52,-.52],[.52,-.52],[.52,.52],[-.52,.52]][f.pos];return one(cx+P[0]*S,cy+P[1]*S,S*SZF[sz]*.5,true);}
+  if(n===1) return one(cx,cy,S*SZF[sz],true);
+  return NPOS[n].map(p=>one(cx+p[0]*S,cy+p[1]*S,S*SZF[sz]*NSC[n],false)).join('');
+}
+function visSig(f){
+  const o=(f.mk||f.dot)?360:(SYMO[f.sh]||360);
+  const n=f.n||1;
+  const rot=n>1?0:((((f.rot||0)%360)+360)%360);
+  const rn=o===1?0:rot%o;
+  return [f.sh,f.fi||0,f.sz==null?1:f.sz,n,f.mk?1:0,f.dot?1:0,f.pos==null?-1:f.pos,f.mir?1:0,rn].join('|');
+}
+const optSvg=f=>SVGO(100,100,BOX(2,2,96,96)+fig(f,50,50,34));
+
+function perturb(r,f,attr){
+  const g=Object.assign({},f);
+  switch(attr){
+    case 'fi':g.fi=PK(r,[0,1,2].filter(x=>x!==f.fi));break;
+    case 'sz':g.sz=PK(r,[0,1,2].filter(x=>x!==(f.sz==null?1:f.sz)));break;
+    case 'rot':g.rot=(f.rot||0)+PK(r,[45,90,-45,-90,180]);break;
+    case 'n':g.n=PK(r,[(f.n||1)-1,(f.n||1)+1].filter(x=>x>=1&&x<=6));break;
+    case 'sh':g.sh=PK(r,['sq','cir','tri','dia','pent','hex'].filter(x=>x!==f.sh));break;
+    case 'pos':g.pos=PK(r,[0,1,2,3].filter(x=>x!==f.pos));break;
+    case 'mir':g.mir=f.mir?0:1;break;
+  }
+  return g;
+}
+function assemble(r,ans,cands,fallback){
+  const seen=new Set([visSig(ans)]); const out=[];
+  const add=(f,tag)=>{const s=visSig(f);if(!seen.has(s)){seen.add(s);out.push({f:f,tag:tag});}};
+  SHF(r,cands).forEach(c=>add(c.f,c.tag));
+  let g=0; while(out.length<4&&g++<80){const at=PK(r,fallback);add(perturb(r,ans,at),at);}
+  const opts=out.slice(0,4).concat([{f:ans,tag:'ok'}]);
+  const order=SHF(r,opts);
+  return {opts:order.map(o=>({svg:optSvg(o.f),tag:o.tag,sig:visSig(o.f)})),ans:order.findIndex(o=>o.tag==='ok')};
+}
+function noiseVec(r,vals,n){
+  if(r()<.35){const v=PK(r,vals);return Array(n).fill(v);}
+  const a=PK(r,vals), b=PK(r,vals.filter(x=>x!==a)); const idx=SHF(r,[0,1,2,3,4]); const v=Array(n).fill(a);
+  idx.slice(0,2).forEach(i=>{v[i]=b;}); return v;
+}
+
+/* ---------- polyomino helpers ---------- */
+const NB=[[1,0],[-1,0],[0,1],[0,-1]];
+const cKey=cs=>cs.map(x=>x[0]+','+x[1]).sort().join(';');
+function norm(cs){const mr=Math.min.apply(null,cs.map(x=>x[0])),mc=Math.min.apply(null,cs.map(x=>x[1]));return cs.map(x=>[x[0]-mr,x[1]-mc]);}
+const rot90=cs=>norm(cs.map(x=>[x[1],-x[0]]));
+const mirH=cs=>norm(cs.map(x=>[x[0],-x[1]]));
+function rotK(cs,k){let a=norm(cs);for(let i=0;i<k;i++)a=rot90(a);return a;}
+function symmetries(cs){const out=[];let a=norm(cs);for(let i=0;i<4;i++){out.push(a);a=rot90(a);}let m=mirH(cs);for(let i=0;i<4;i++){out.push(m);m=rot90(m);}return out;}
+function isChiral(cs){const mk=cKey(mirH(cs));for(let i=0,a=norm(cs);i<4;i++,a=rot90(a)){if(cKey(a)===mk)return false;}return true;}
+function connected(cs){if(!cs.length)return false;const seen=new Set([cs[0][0]+','+cs[0][1]]),st=[cs[0]];const has=(a,b)=>cs.some(x=>x[0]===a&&x[1]===b);while(st.length){const c=st.pop();NB.forEach(d=>{const a=c[0]+d[0],b=c[1]+d[1],k=a+','+b;if(has(a,b)&&!seen.has(k)){seen.add(k);st.push([a,b]);}});}return seen.size===cs.length;}
+function randPoly(r,k,n){
+  for(let t=0;t<400;t++){
+    const cells=[[RI(r,0,n-1),RI(r,0,n-1)]]; let g=0;
+    while(cells.length<k&&g++<300){const c=PK(r,cells),d=PK(r,NB),a=c[0]+d[0],b=c[1]+d[1];if(a<0||b<0||a>=n||b>=n||cells.some(x=>x[0]===a&&x[1]===b))continue;cells.push([a,b]);}
+    if(cells.length===k) return cells;
+  }
+  return null;
+}
+function changedPoly(r,cs,n){
+  const sy=symmetries(cs).map(cKey);
+  for(let t=0;t<300;t++){
+    const rem=PK(r,cs), rest=cs.filter(x=>x!==rem); if(!connected(rest))continue;
+    const cand=[]; rest.forEach(c=>NB.forEach(d=>{const a=c[0]+d[0],b=c[1]+d[1];if(a>=0&&b>=0&&a<n&&b<n&&!rest.some(x=>x[0]===a&&x[1]===b)&&!(a===rem[0]&&b===rem[1]))cand.push([a,b]);}));
+    if(!cand.length)continue; const ncs=rest.concat([PK(r,cand)]);
+    if(!sy.includes(cKey(norm(ncs)))) return ncs;
+  }
+  return null;
+}
+function isSym(cs){
+  const n=norm(cs),H=Math.max.apply(null,n.map(x=>x[0]))+1,W=Math.max.apply(null,n.map(x=>x[1]))+1,k=cKey(n);
+  if(cKey(n.map(x=>[x[0],W-1-x[1]]))===k)return true;
+  if(cKey(n.map(x=>[H-1-x[0],x[1]]))===k)return true;
+  if(H===W){ if(cKey(n.map(x=>[x[1],x[0]]))===k)return true; if(cKey(n.map(x=>[W-1-x[1],H-1-x[0]]))===k)return true; }
+  return false;
+}
+function symPoly(r,k,H,W){
+  for(let t=0;t<800;t++){
+    const cs=[]; for(let rr=0;rr<H;rr++)for(let c=0;c<Math.ceil(W/2);c++){if(r()<.55){cs.push([rr,c]);const mc=W-1-c;if(mc!==c)cs.push([rr,mc]);}}
+    if(cs.length!==k||!connected(cs))continue;
+    const n=norm(cs); if(Math.max.apply(null,n.map(x=>x[1]))+1!==W)continue; if(Math.max.apply(null,n.map(x=>x[0]))+1<3)continue;
+    return cs;
+  }
+  return null;
+}
+function polySvg(cs,cell){
+  const n=norm(cs),H=Math.max.apply(null,n.map(x=>x[0]))+1,W=Math.max.apply(null,n.map(x=>x[1]))+1;
+  const ox=50-W*cell/2, oy=50-H*cell/2;
+  return SVGO(100,100,BOX(2,2,96,96)+n.map(x=>'<rect class="nvf g1 cellp" x="'+(ox+x[1]*cell).toFixed(1)+'" y="'+(oy+x[0]*cell).toFixed(1)+'" width="'+cell+'" height="'+cell+'"/>').join(''));
+}
+
+/* ---------- 1. ODD ONE OUT ---------- */
+function genOdd(r,L){
+  const ALL=['sq','cir','tri','dia','pent','hex'], STR=['sq','tri','pent','hex','dia'], CUR=['cir','ell'];
+  const oddIdx=RI(r,0,4); let opts=[],why=[];
+  const fromFigs=figs=>figs.map((f,i)=>({svg:optSvg(f),tag:i===oddIdx?'ok':'noise',sig:visSig(f)}));
+  if(L===1){
+    const s=SHF(r,ALL), fi=PK(r,[0,1,2]), sz=PK(r,[1,2]);
+    opts=fromFigs(Array.from({length:5},(_,i)=>({sh:i===oddIdx?s[1]:s[0],fi:fi,sz:sz})));
+    why=['Four are '+SHN[s[0]]+'s. One is a '+SHN[s[1]]+'.'];
+  }else if(L===2){
+    const f=SHF(r,[0,1,2]), shv=noiseVec(r,SHF(r,ALL).slice(0,3),5), szv=noiseVec(r,[0,1,2],5);
+    opts=fromFigs(Array.from({length:5},(_,i)=>({sh:shv[i],fi:i===oddIdx?f[1]:f[0],sz:szv[i]})));
+    why=['Four have '+FNAME[f[0]]+' shading. One has '+FNAME[f[1]]+' shading.','Shape and size change in lots of them, so they are not the clue.'];
+  }else if(L===3){
+    if(r()<.5){
+      const majS=r()<.6, maj=majS?STR:CUR, od=majS?CUR:STR, fiv=noiseVec(r,[0,1,2],5), szv=noiseVec(r,[0,1,2],5);
+      const majShapes=majS?null:PK(r,[['cir','cir','cir','cir'],['ell','ell','ell','ell'],SHF(r,['cir','cir','ell','ell'])]); let mi=0;
+      opts=fromFigs(Array.from({length:5},(_,i)=>({sh:i===oddIdx?PK(r,od):(majS?PK(r,maj):majShapes[mi++]),fi:fiv[i],sz:szv[i]})));
+      why=majS?['Four shapes have only straight sides. One has a curved edge.']:['Four shapes are curved all the way round. One has straight sides.'];
+    }else{
+      const dotMaj=r()<.5, shv=noiseVec(r,SHF(r,ALL).slice(0,3),5), fiv=noiseVec(r,[0,1,2],5), szv=noiseVec(r,[1,2],5);
+      opts=fromFigs(Array.from({length:5},(_,i)=>({sh:shv[i],fi:fiv[i],sz:szv[i],dot:(i===oddIdx)?(dotMaj?0:1):(dotMaj?1:0)})));
+      why=dotMaj?['Four have a dot in the middle. One has no dot.']:['Four have no dot. One has a dot in the middle.'];
+    }
+  }else{
+    const kc=PK(r,[8,9,10]), sym=[], seen=new Set(); let g=0;
+    while(sym.length<4&&g++<600){const W=(kc%2===0)?PK(r,[3,4]):3;const cs=symPoly(r,kc,4,W);if(cs){const k=symmetries(cs).map(cKey).sort()[0];if(!seen.has(k)){seen.add(k);sym.push(cs);}}}
+    let as=null; g=0; while(g++<800){const c=randPoly(r,kc,4);const nn=c&&norm(c);if(c&&!isSym(c)&&connected(c)&&Math.max.apply(null,nn.map(x=>x[1]))>=2&&Math.max.apply(null,nn.map(x=>x[0]))>=2){as=c;break;}}
+    const cells=[]; let si=0; for(let i=0;i<5;i++)cells.push(i===oddIdx?as:sym[si++]);
+    var cellsDbg=cells;
+    opts=cells.map((cs,i)=>({svg:polySvg(rotK(cs,RI(r,0,3)),18),tag:i===oddIdx?'ok':'noise',sig:'p'+i}));
+    why=['Four shapes are symmetrical: you could fold each one along a line and the two halves would match.','One shape has no line of symmetry.'];
+  }
+  return {stem:'',opts:opts,ans:oddIdx,why:why,meta:{polyCells:typeof cellsDbg!=='undefined'?cellsDbg:null},
+    hint:['Check one feature at a time: shape, shading, size, any dots, curved or straight edges.','Which picture breaks the group?']};
+}
+
+/* ---------- 2. SERIES ---------- */
+const mkRule=(attr,fn,say)=>({attr:attr,fn:fn,say:say});
+const R_FILL_ALT=(a,b)=>mkRule('fi',i=>i%2?b:a,'The shading swaps between '+FNAME[a]+' and '+FNAME[b]+'.');
+const R_SIZE_ALT=(a,b)=>mkRule('sz',i=>i%2?b:a,'The size swaps between '+ZNAME[a]+' and '+ZNAME[b]+'.');
+const R_COUNT=()=>mkRule('n',i=>i+1,'One more shape is added each time.');
+const R_ROT=st=>mkRule('rot',i=>i*st,'The shape turns '+st+'° clockwise each time.');
+const R_SHAPE3=l=>mkRule('sh',i=>l[i%3],'The shapes repeat in a cycle of three: '+l.map(s=>SHN[s]).join(', ')+'.');
+const R_SHAPE2=(a,b)=>mkRule('sh',i=>i%2?b:a,'The shape swaps between '+SHN[a]+' and '+SHN[b]+'.');
+const R_FILL3=()=>mkRule('fi',i=>i%3,'The shading cycles: white, light grey, dark, then white again.');
+const R_POS=()=>mkRule('pos',i=>i%4,'The shape hops clockwise to the next corner each time.');
+function genSeries(r,L){
+  const ASY=['arrow','tri','semi'], ANY=['sq','cir','tri','dia','pent','hex'];
+  let rules=[],nShow=4,base={sh:PK(r,ANY),fi:0,sz:1,rot:0,n:1};
+  const pf=()=>PK(r,[[0,2],[2,0],[0,1],[1,2]]);
+  if(L===1){
+    const t=PK(r,['fill','size','count']);
+    if(t==='fill'){const p=pf();rules=[R_FILL_ALT(p[0],p[1])];}
+    else if(t==='size'){const p=PK(r,[[0,2],[2,0],[0,1]]);rules=[R_SIZE_ALT(p[0],p[1])];}
+    else{rules=[R_COUNT()];base.sz=2;}
+  }else if(L===2){
+    const t=PK(r,['rot','shape3','fill3','pos']);
+    if(t==='rot'){base.sh=PK(r,ASY);rules=[R_ROT(45)];}
+    else if(t==='shape3'){rules=[R_SHAPE3(SHF(r,ANY).slice(0,3))];nShow=5;}
+    else if(t==='fill3'){rules=[R_FILL3()];nShow=5;}
+    else{rules=[R_POS()];}
+  }else if(L===3){
+    nShow=5; const t=PK(r,['rotfill','countfill','rotsize','posfill']);
+    if(t==='rotfill'){base.sh=PK(r,ASY);const p=pf();rules=[R_ROT(90),R_FILL_ALT(p[0],p[1])];}
+    else if(t==='countfill'){base.sz=2;const p=pf();rules=[R_COUNT(),R_FILL_ALT(p[0],p[1])];}
+    else if(t==='rotsize'){base.sh=PK(r,ASY);rules=[R_ROT(45),R_SIZE_ALT(0,2)];}
+    else{const p=pf();rules=[R_POS(),R_FILL_ALT(p[0],p[1])];}
+  }else{
+    nShow=5; const t=PK(r,['A','B','C']);
+    if(t==='A'){base.sh=PK(r,ASY);rules=[R_ROT(45),R_FILL3(),R_SIZE_ALT(1,2)];}
+    else if(t==='B'){const s=SHF(r,ANY).slice(0,3);rules=[R_SHAPE3(s),R_FILL_ALT(0,2),R_POS()];}
+    else{const s=SHF(r,ANY);base.sz=2;rules=[R_COUNT(),R_SHAPE2(s[0],s[1]),R_FILL3()];}
+  }
+  const items=Array.from({length:nShow+1},(_,i)=>{const f=Object.assign({},base);rules.forEach(rl=>{f[rl.attr]=rl.fn(i);});return f;});
+  const ans=items[nShow], last=items[nShow-1];
+  const cands=[{f:last,tag:'repeat'},{f:items[nShow-2],tag:'repeat'}];
+  rules.forEach(rl=>{const st=Object.assign({},ans);st[rl.attr]=last[rl.attr];cands.push({f:st,tag:'stall'});cands.push({f:perturb(r,ans,rl.attr),tag:rl.attr});cands.push({f:perturb(r,ans,rl.attr),tag:rl.attr});});
+  const as=assemble(r,ans,cands,rules.map(x=>x.attr).concat(['sh','fi']));
+  const bw=50,gap=6,w=(nShow+1)*(bw+gap)-gap;
+  let st=''; for(let i=0;i<=nShow;i++){const x=i*(bw+gap);st+=BOX(x+1,1,bw-2,bw-2,i===nShow);st+=(i<nShow)?fig(items[i],x+bw/2,bw/2,21):'<text class="svgtxt" x="'+(x+bw/2)+'" y="'+(bw/2+8)+'" text-anchor="middle">?</text>';}
+  return {stem:SVGO(w,bw,st),opts:as.opts,ans:as.ans,why:rules.map(x=>x.say),meta:{items:items,nShow:nShow,attrs:rules.map(x=>x.attr)},
+    hint:['Say what changes from picture 1 to 2, then from 2 to 3.','Keep going with the same changes for the empty box.']};
+}
+
+/* ---------- 3. ANALOGY ---------- */
+function genAnalogy(r,L){
+  const ANY=['sq','cir','tri','dia','pent','hex'], ASY=['arrow','tri','semi'];
+  const PP=[[0,2],[2,0],[0,1],[1,2],[2,1]];
+  const E={
+    fill:(a,b)=>({attr:'fi',start:f=>{f.fi=a;},apply:f=>Object.assign({},f,{fi:b}),wrong:f=>Object.assign({},f,{fi:[0,1,2].find(x=>x!==a&&x!==b)}),say:'The shading changes from '+FNAME[a]+' to '+FNAME[b]+'.'}),
+    size:(a,b)=>({attr:'sz',start:f=>{f.sz=a;},apply:f=>Object.assign({},f,{sz:b}),wrong:f=>Object.assign({},f,{sz:[0,1,2].find(x=>x!==a&&x!==b)}),say:'The size changes from '+ZNAME[a]+' to '+ZNAME[b]+'.'}),
+    rot:d=>({attr:'rot',start:f=>{f.rot=0;},apply:f=>Object.assign({},f,{rot:(f.rot||0)+d}),wrong:f=>Object.assign({},f,{rot:(f.rot||0)+(Math.abs(d)===180?90:-d)}),say:Math.abs(d)===180?'The shape is turned upside down (a half turn).':'The shape turns '+Math.abs(d)+'° '+(d>0?'clockwise':'anticlockwise')+'.'}),
+    mirror:()=>({attr:'mir',start:f=>{f.mir=0;},apply:f=>Object.assign({},f,{mir:1}),wrong:f=>Object.assign({},f,{rot:180}),say:'The shape is flipped over like a mirror image (left and right swap).'}),
+    count:()=>({attr:'n',start:f=>{f.n=1;},apply:f=>Object.assign({},f,{n:(f.n||1)+1}),wrong:f=>Object.assign({},f,{n:(f.n||1)+2}),say:'One more shape is added.'}),
+    swap:(s1,s2,s3)=>({attr:'sh',start:f=>{f.sh=s1;},apply:f=>Object.assign({},f,{sh:s2}),wrong:f=>Object.assign({},f,{sh:s3}),say:'The '+SHN[s1]+' changes into a '+SHN[s2]+'.'})
+  };
+  let edits=[],shA,shC,bothSame=false,sizeFix=false;
+  const diffShapes=pool=>{const s=SHF(r,pool);shA=s[0];shC=s[1];};
+  if(L===1){const p=PK(r,PP);edits=[r()<.5?E.fill(p[0],p[1]):E.size(p[0],p[1])];diffShapes(ANY);}
+  else if(L===2){edits=[E.rot(PK(r,[90,180,-90]))];diffShapes(ASY);}
+  else if(L===3){if(r()<.5){edits=[E.mirror()];shA=shC='flag';bothSame=true;}else{edits=[E.count()];diffShapes(ANY);sizeFix=true;}}
+  else{
+    const t=PK(r,['rotfill','mirrorsize','swapfill','countfill']); const p=PK(r,PP);
+    if(t==='rotfill'){edits=[E.rot(PK(r,[90,-90,180])),E.fill(p[0],p[1])];diffShapes(ASY);}
+    else if(t==='mirrorsize'){edits=[E.mirror(),E.size(PP[0][0],PP[0][1])];shA=shC='flag';bothSame=true;}
+    else if(t==='swapfill'){const s=SHF(r,ANY);edits=[E.swap(s[0],s[1],s[2]),E.fill(p[0],p[1])];shA=shC=s[0];bothSame=true;}
+    else{edits=[E.count(),E.fill(p[0],p[1])];diffShapes(ANY);sizeFix=true;}
+  }
+  const A={sh:shA,fi:0,sz:1,rot:0,n:1}; edits.forEach(e=>e.start(A)); if(sizeFix)A.sz=2;
+  const C=Object.assign({},A,{sh:shC});
+  if(bothSame){
+    const hasSize=edits.some(e=>e.attr==='sz'), hasFill=edits.some(e=>e.attr==='fi');
+    if(!hasSize&&!hasFill){C.fi=PK(r,[1,2]);}
+    else if(!hasSize){C.sz=PK(r,[0,2]);}
+    else{C.fi=PK(r,[1,2]);}
+  }
+  const B=edits.reduce((f,e)=>e.apply(f),A), ans=edits.reduce((f,e)=>e.apply(f),C);
+  const cands=[{f:C,tag:'nochange'},{f:B,tag:'copyB'}];
+  edits.forEach((e,i)=>{
+    cands.push({f:edits.filter((_,j)=>j!==i).reduce((f,x)=>x.apply(f),C),tag:'partial'});
+    cands.push({f:edits.reduce((f,x,j)=>j===i?x.wrong(f):x.apply(f),C),tag:e.attr});
+  });
+  const as=assemble(r,ans,cands,['fi','sz','sh']);
+  const bw=60;
+  let st=BOX(1,1,bw-2,bw-2)+fig(A,31,30,25)+'<text class="svgtxt" x="77" y="38" text-anchor="middle">→</text>'
+    +BOX(92,1,bw-2,bw-2)+fig(B,122,30,25)
+    +'<text class="svgtxt" x="164" y="38" text-anchor="middle">:</text>'
+    +BOX(176,1,bw-2,bw-2)+fig(C,206,30,25)+'<text class="svgtxt" x="251" y="38" text-anchor="middle">→</text>'
+    +BOX(266,1,bw-2,bw-2,true)+'<text class="svgtxt" x="296" y="40" text-anchor="middle">?</text>';
+  return {stem:SVGO(328,bw,st),opts:as.opts,ans:as.ans,meta:{A:A,B:B,C:C,ans:ans},why:edits.map(e=>e.say).concat(['Do exactly the same change to the third picture.']),
+    hint:['What changed between the first two pictures? Name each change.','Make the very same change(s) to the third picture.']};
+}
+
+/* ---------- 4. MATRIX ---------- */
+function genMatrix(r,L){
+  const shapes=SHF(r,['sq','cir','tri','dia','pent','hex']);
+  const s3=shapes.slice(0,3), fo=SHF(r,[0,1,2]); let N=3,cell,why=[];
+  if(L===1){N=2;const fl=PK(r,[[0,2],[2,0]]);cell=(a,b)=>({sh:s3[a],fi:fl[b],sz:1});why=['Each row has its own shape.','The shading changes along the row in the same way each time.'];}
+  else if(L===2){cell=(a,b)=>({sh:s3[a],fi:fo[b],sz:1});why=['Each row has its own shape.','Each column has its own shading.'];}
+  else if(L===3){cell=(a,b)=>({sh:s3[(a+b)%3],fi:fo[a],sz:1});why=['Each row has its own shading.','The three shapes shift along one place in each row, so every row and column has each shape once.'];}
+  else{cell=(a,b)=>({sh:s3[(a+b)%3],fi:fo[(a+2*b)%3],sz:1});why=['Every row and every column has each of the three shapes exactly once.','Every row and every column also has each of the three shadings exactly once.','So the missing square is the shape and shading not yet used in its row and column.'];}
+  const m=N-1, ans=cell(m,m);
+  const psh=()=>Object.assign({},ans,{sh:PK(r,s3.slice(0,N===2?2:3).filter(x=>x!==ans.sh))});
+  const cands=[{f:cell(m,m-1),tag:'copyrow'},{f:cell(m-1,m),tag:'copycol'},{f:psh(),tag:'sh'},{f:psh(),tag:'sh'},{f:psh(),tag:'sh'},{f:perturb(r,ans,'fi'),tag:'fi'},{f:perturb(r,ans,'fi'),tag:'fi'},{f:perturb(r,ans,'sz'),tag:'sz'}];
+  if(N===3){cands.push({f:cell(0,m),tag:'copycol'});cands.push({f:cell(m,0),tag:'copyrow'});}
+  const as=assemble(r,ans,cands,['fi','sz']);
+  const cs=56,w=N*cs+4; let st='';
+  for(let a=0;a<N;a++)for(let b=0;b<N;b++){const x=2+b*cs,y=2+a*cs;if(a===m&&b===m){st+=BOX(x+1,y+1,cs-4,cs-4,true)+'<text class="svgtxt" x="'+(x+cs/2-1)+'" y="'+(y+cs/2+8)+'" text-anchor="middle">?</text>';}else{st+=BOX(x+1,y+1,cs-4,cs-4)+fig(cell(a,b),x+cs/2-1,y+cs/2-1,21);}}
+  return {stem:SVGO(w,w,st,'sq'),opts:as.opts,ans:as.ans,why:why,meta:{N:N,L:L,grid:Array.from({length:N},(_,a)=>Array.from({length:N},(_,b)=>cell(a,b))),optSigs:as.opts.map(o=>o.sig)},
+    hint:['Look at one row, then one column. What stays the same? What changes?','Which picture is missing from its row and column?']};
+}
+
+/* ---------- 5. TURN OR FLIP ---------- */
+function genTurn(r,L){
+  const cfg={1:{k:4,n:3,cs:26,nm:2,nc:1},2:{k:5,n:3,cs:24,nm:2,nc:1},3:{k:6,n:4,cs:20,nm:2,nc:2},4:{k:7,n:4,cs:18,nm:2,nc:2}}[L];
+  let cs=null,rcs=[]; for(let t=0;t<900&&!cs;t++){const c=randPoly(r,cfg.k,cfg.n);if(c&&isChiral(c)&&connected(c)){const ok0=cKey(norm(c));const rr=[1,2,3].filter(q=>cKey(rotK(c,q))!==ok0);if(rr.length){cs=c;rcs=rr;}}}
+  const keys=new Set(); const opts=[];
+  const addOpt=(cells,tag)=>{const k=cKey(norm(cells));if(keys.has(k))return false;keys.add(k);opts.push({cells:cells,tag:tag});return true;};
+  const orig=norm(cs); keys.add(cKey(orig)); // the original orientation is shown in the stem, never as an option
+  const rc=PK(r,rcs); addOpt(rotK(cs,rc),'ok');
+  let g=0; const rots=SHF(r,[0,1,2,3]); let ri=0;
+  while(opts.filter(o=>o.tag==='mirror').length<cfg.nm&&g++<40){addOpt(rotK(mirH(cs),rots[ri++%4]),'mirror');}
+  g=0; while(opts.filter(o=>o.tag==='changed').length<cfg.nc&&g++<60){const ch=changedPoly(r,cs,cfg.n);if(ch)addOpt(rotK(ch,RI(r,0,3)),'changed');}
+  g=0; while(opts.length<(L<=2?4:5)&&g++<60){const ch=changedPoly(r,cs,cfg.n);if(ch)addOpt(rotK(ch,RI(r,0,3)),'changed');}
+  const order=SHF(r,opts);
+  return {stem:SVGO(100,100,BOX(2,2,96,96)+norm(cs).map(x=>{const H=Math.max.apply(null,norm(cs).map(y=>y[0]))+1,W=Math.max.apply(null,norm(cs).map(y=>y[1]))+1;return '<rect class="nvf g1 cellp" x="'+(50-W*cfg.cs/2+x[1]*cfg.cs).toFixed(1)+'" y="'+(50-H*cfg.cs/2+x[0]*cfg.cs).toFixed(1)+'" width="'+cfg.cs+'" height="'+cfg.cs+'"/>';}).join(''),'one'),
+    opts:order.map(o=>({svg:polySvg(o.cells,cfg.cs),tag:o.tag,sig:cKey(norm(o.cells))})),ans:order.findIndex(o=>o.tag==='ok'),meta:{orig:cs,cells:order.map(o=>o.cells)},
+    why:['The correct one is the original shape turned round, like turning a steering wheel.','A flipped (mirror) shape can never be turned to match.','Some options have a square moved to a different place, so they are a different shape.'],
+    hint:['Pick one odd-looking part, like the longest arm, and follow it as you turn the shape in your head.','Remember: turning is OK, flipping over is not.']};
+}
+
+/* ---------- 6. CODE BREAKER ---------- */
+function genCode(r,L){
+  const letters=SHF(r,'ABCDEFGH'.split('')); let li=0; const take=()=>letters[li++];
+  const useSz=L>=3, nSh=(L===2||L===4)?3:2;
+  const shapes=SHF(r,['sq','tri','cir','dia']).slice(0,nSh), fills=[0,2], sizes=[0,2];
+  const code={sh:shapes.map(()=>take()),fi:fills.map(()=>take())}; if(useSz)code.sz=sizes.map(()=>take());
+  const attrs=useSz?['sh','fi','sz']:['sh','fi'];
+  const vals={sh:shapes,fi:fills,sz:sizes};
+  const baseIdx={sh:0,fi:0,sz:0};
+  const figOf=ix=>({sh:shapes[ix.sh],fi:fills[ix.fi],sz:useSz?sizes[ix.sz]:1});
+  const codeOf=ix=>attrs.map(a=>code[a][ix[a]]).join('');
+  const exIx=[Object.assign({},baseIdx)];
+  attrs.forEach(a=>{for(let v=1;v<vals[a].length;v++){const e=Object.assign({},baseIdx);e[a]=v;exIx.push(e);}});
+  const test={}; attrs.forEach(a=>{test[a]=1+(vals[a].length>2?RI(r,0,1):0);});
+  const exs=SHF(r,exIx); const ans=codeOf(test), tf=figOf(test);
+  const cset=new Set([ans]); const cands=[];
+  const allL=[].concat.apply([],attrs.map(a=>code[a]));
+  const rev=ans.split('').reverse().join(''); if(rev!==ans)cands.push({t:rev,tag:'order'});
+  ans.split('').forEach((ch,pos)=>{allL.forEach(l=>{if(l!==ch){const s=ans.split('');s[pos]=l;cands.push({t:s.join(''),tag:'letter'});}});});
+  const pickd=[]; SHF(r,cands).forEach(c=>{if(!cset.has(c.t)&&pickd.length<4){cset.add(c.t);pickd.push(c);}});
+  if(rev!==ans&&!pickd.some(c=>c.t===rev)){pickd[0]={t:rev,tag:'order'};}
+  const order=SHF(r,pickd.map(c=>({t:c.t,tag:c.tag})).concat([{t:ans,tag:'ok'}]));
+  const cw=104,bh=66,rowH=92,n=exs.length+1;
+  let st=''; for(let i=0;i<n;i++){const col=i%3,row=Math.floor(i/3),x=col*cw+8,y=row*rowH+2;
+    if(i<exs.length){st+=BOX(x,y,bh,bh)+fig(figOf(exs[i]),x+bh/2,y+bh/2,26)+'<text class="svgtxt code" x="'+(x+bh/2)+'" y="'+(y+bh+19)+'" text-anchor="middle">'+codeOf(exs[i])+'</text>';}
+    else{st+=BOX(x,y,bh,bh,true)+fig(tf,x+bh/2,y+bh/2,26)+'<text class="svgtxt code" x="'+(x+bh/2)+'" y="'+(y+bh+19)+'" text-anchor="middle">?</text>';}}
+  const rows=Math.ceil(n/3);
+  const why=['Compare the examples. When only one thing changes, only one letter changes.'].concat(attrs.map(a=>vals[a].map((v,i)=>code[a][i]+' = '+(a==='sh'?SHN[v]:a==='fi'?FNAME[v]:ZNAME[v])).join(', ')+'.'));
+  return {stem:SVGO(324,rows*rowH,st),opts:order.map(o=>({text:o.t,tag:o.tag,sig:o.t})),ans:order.findIndex(o=>o.tag==='ok'),why:why,meta:{exs:exs.map(ix=>({fig:figOf(ix),code:codeOf(ix)})),test:tf,ans:ans,attrs:attrs},
+    hint:['Find two examples that are almost the same. The letter that is different matches the thing that is different.','Build the last code one letter at a time.']};
+}
+
+const NV_GEN={odd:genOdd,series:genSeries,analogy:genAnalogy,matrix:genMatrix,turn:genTurn,code:genCode};
+function nvSeed(runSeed,type,level,k){return hash32(runSeed,type,level,k);}
+function nvGen(type,level,seed){const r=mulberry32(seed);const it=NV_GEN[type](r,level);it.type=type;it.level=level;it.seed=seed;return it;}
+
+/* ===================== Reasoning side quests: assessment, results, practice ===================== */
+const NVK="mm3_nvr_v1";
+let nv={runs:[],practice:[],start:{}};
+try{const s=JSON.parse(localStorage.getItem(NVK)||"null");if(s&&s.runs)nv=Object.assign({runs:[],practice:[],start:{}},s);}catch(e){}
+function nvSave(){try{localStorage.setItem(NVK,JSON.stringify(nv));}catch(e){}}
+let nvUI={screen:"home",pick:null,cur:null,pr:null,review:false,justDone:false};
+
+const NV_TYPES=[
+ {id:"odd",name:"Odd One Out",kid:"Odd One Out Detective",em:"🕵️",src:"CAT4 Figure Classification; 11+ Odd One Out",prompt:"Which one is the odd one out?",
+  how:["Four of these pictures follow the same pattern. One doesn't!","Look at the shapes, shading, size and details. Find what the four have in common."]},
+ {id:"series",name:"What Comes Next",kid:"Pattern Pathfinder",em:"🧭",src:"11+ Missing Sequence",prompt:"What comes next in the pattern?",
+  how:["Look along the row. The pictures change in the same way each step.","Work out the changes, then pick the picture for the empty box."]},
+ {id:"analogy",name:"Shape Match-Up",kid:"Shape Match-Up",em:"🔗",src:"CAT4 Figure Matrices; 11+ Like Shapes",prompt:"The first picture changes into the second. What does the third picture change into?",
+  how:["The first picture changes into the second one in a certain way.","Make exactly the same change to the third picture."]},
+ {id:"matrix",name:"Missing Square",kid:"Missing Square Mystery",em:"🧩",src:"11+ Missing Square; CAT4 Figure Matrices",prompt:"Which picture finishes the grid?",
+  how:["Every row and every column follows rules.","Work out the rules, then find the picture for the empty square."]},
+ {id:"turn",name:"Turn or Flip",kid:"Turn or Flip?",em:"🔄",src:"11+ Rotations",prompt:"Which one is the SAME shape, just turned around? (Not flipped over!)",
+  how:["You can turn a shape round, like a steering wheel, and it is still the same shape.","A flipped shape, like a mirror image, is different.","Find the one that is the original shape, just turned."]},
+ {id:"code",name:"Code Breaker",kid:"Code Breaker",em:"🔐",src:"11+ Code Breaker",prompt:"Crack the code! What is the code for the last shape?",
+  how:["Each shape has a secret code made of letters.","Compare the examples to find out what each letter means.","Then write the code for the last shape."]}
+];
+const TAGCAT={repeat:"copying the last picture",stall:"applying only part of the rule",fi:"shading",sz:"size",rot:"turning / direction",n:"counting",sh:"shape",pos:"position",mir:"flip vs turn",mirror:"flip vs turn",changed:"spotting small differences",noise:"getting distracted by details",nochange:"copying without changing",copyB:"copying the example",partial:"applying only part of the rule",copyrow:"copying a neighbour",copycol:"copying a neighbour",letter:"what each letter means",order:"letter order",skip:"unsure",other:"other"};
+const NVLEV=["Not yet established","Starting out","Developing","Secure","Strong (stretch level)"];
+const NVLEVK=["Great place to start! 🌱","Warming up 🔥","Getting strong 💪","Super sharp ⚡","Superstar! 🏆"];
+const NVLTXT=["","Warm-up","Core","Challenge","Stretch (11+ style)"];
+
+function nvRun(){const r=nv.runs[nv.runs.length-1];return r&&!r.end?r:null;}
+function nvLastDone(skip){let seen=0;for(let i=nv.runs.length-1;i>=0;i--){if(nv.runs[i].end){if(seen>=(skip||0))return nv.runs[i];seen++;}}return null;}
+function nvNew(){
+  const seed=(Date.now()%2147483647)>>>0, tp={};
+  NV_TYPES.forEach(t=>{tp[t.id]={lvl:1,k:0,consec:0,n:0,l4ok:0,done:false};});
+  nv.runs.push({id:nv.runs.length+1,seed:seed,start:Date.now(),end:null,items:[],tp:tp,intro:{},breakSeen:false});
+  nvSave(); nvUI.screen="run"; nvUI.pick=null; nvUI.cur=null; nvUI.justDone=false;
+}
+function nvStep(run){
+  const open=NV_TYPES.filter(t=>!run.tp[t.id].done);
+  if(!open.length)return {screen:"done"};
+  if(NV_TYPES.slice(0,3).every(t=>run.tp[t.id].done)&&!run.breakSeen)return {screen:"break"};
+  const t=open[0]; if(!run.intro[t.id])return {screen:"intro",type:t.id};
+  return {screen:"item",type:t.id};
+}
+function nvCurItem(run,type){
+  const tp=run.tp[type], key=run.id+"-"+type+"-"+tp.lvl+"-"+tp.k;
+  if(!nvUI.cur||nvUI.cur.key!==key){nvUI.cur={key:key,item:nvGen(type,tp.lvl,nvSeed(run.seed,type,tp.lvl,tp.k)),t0:Date.now()};nvUI.pick=null;}
+  return nvUI.cur;
+}
+function nvRecord(run,skip){
+  const st=nvStep(run); if(st.screen!=="item")return;
+  const type=st.type, tp=run.tp[type], cur=nvCurItem(run,type), it=cur.item;
+  const pk=skip?null:nvUI.pick, ok=!skip&&pk===it.ans, ms=Math.min(180000,Date.now()-cur.t0);
+  run.items.push({t:type,l:tp.lvl,k:tp.k,pi:pk,ok:ok,skip:!!skip,ms:ms,tag:skip?"skip":(pk==null?"other":it.opts[pk].tag)});
+  tp.n++; tp.k++;
+  if(ok){tp.consec=0;if(tp.lvl<4)tp.lvl++;else{tp.l4ok++;if(tp.l4ok>=2)tp.done=true;}}
+  else{tp.consec++;if(tp.consec>=2)tp.done=true;}
+  if(tp.n>=7)tp.done=true;
+  if(NV_TYPES.every(t=>run.tp[t.id].done))run.end=Date.now();
+  nvUI.pick=null; nvUI.cur=null; nvSave();
+}
+function nvAnalyse(run){
+  const out={};
+  NV_TYPES.forEach(T=>{
+    const its=run.items.filter(x=>x.t===T.id), okBy={};
+    its.forEach(x=>{if(x.ok)okBy[x.l]=(okBy[x.l]||0)+1;});
+    let eff=0; for(let L=1;L<=4;L++){if((okBy[L]||0)>=(L===4?2:1))eff=L;}
+    const ms=its.filter(x=>!x.skip).map(x=>x.ms).sort((a,b)=>a-b);
+    const errs={}; its.filter(x=>!x.ok).forEach(x=>{const c=TAGCAT[x.tag]||"other";errs[c]=(errs[c]||0)+1;});
+    out[T.id]={eff:eff,n:its.length,ok:its.filter(x=>x.ok).length,skips:its.filter(x=>x.skip).length,med:ms.length?ms[Math.floor(ms.length/2)]:null,errs:errs,stretch:okBy[4]===1,items:its};
+  });
+  return out;
+}
+function nvPlan(an){
+  const ids=NV_TYPES.map(t=>t.id), acc=id=>an[id].n?an[id].ok/an[id].n:0;
+  const strong=ids.slice().sort((a,b)=>an[b].eff-an[a].eff||acc(b)-acc(a))[0];
+  const rest=ids.filter(i=>i!==strong).sort((a,b)=>an[a].eff-an[b].eff||acc(a)-acc(b));
+  return {warm:strong,focus:rest.slice(0,3),keep:rest.slice(3)};
+}
+const nvT=id=>NV_TYPES.find(t=>t.id===id);
+const nvName=id=>mode==="kid"?nvT(id).kid:nvT(id).name;
+const nvSecs=ms=>ms==null?"-":Math.round(ms/1000)+" s";
+
+/* ---------- item rendering ---------- */
+function nvOpts(it,o){
+  const cols=it.opts.length===4?"c2":"c3";
+  return '<div class="opts '+cols+'">'+it.opts.map((op,i)=>{
+    let cls="opt"; if(o.reveal){if(i===it.ans)cls+=" good";else if(i===o.pick)cls+=" bad";}else if(i===o.sel)cls+=" sel";
+    return '<button class="'+cls+'" '+(o.interactive?'data-nv="pick" data-v="'+i+'"':'disabled')+' aria-label="Option '+"ABCDE"[i]+'">'+(op.svg||'<span class="codeopt">'+esc(op.text)+'</span>')+'<span class="lt">'+"ABCDE"[i]+'</span></button>';
+  }).join("")+'</div>';
+}
+const nvList=a=>a.map(x=>'<div>'+esc(x)+'</div>').join("");
+
+/* ---------- assessment screens ---------- */
+function nvIntroScreen(type){
+  const T=nvT(type), idx=NV_TYPES.findIndex(t=>t.id===type), ex=nvGen(type,1,9100+idx);
+  return topbar()+'<h1>'+T.em+' '+nvName(type)+'</h1><div class="kcard"><b>How it works</b><div class="tip" style="margin-top:6px">'+nvList(T.how)+'</div>'
+    +'<div class="nvprompt" style="margin-top:12px">Example</div><div class="small muted">'+esc(T.prompt)+'</div>'
+    +(ex.stem?'<div class="nvstem">'+ex.stem+'</div>':'')+nvOpts(ex,{reveal:true,pick:null})
+    +'<div class="tip what" style="border-left-color:var(--ok)"><b style="color:var(--ok)">✅ The answer is '+"ABCDE"[ex.ans]+'</b>'+nvList(ex.why)+'</div>'
+    +'<button class="kbtn" style="margin-top:14px" data-nv="begin">🚀 Let\'s go!</button></div>'
+    +'<p class="small muted">The puzzles start easy and get trickier. You will not be told if answers are right until the end.</p>';
+}
+function nvBreakScreen(){
+  return topbar()+'<h1>🍎 Part 1 done!</h1><div class="kcard"><p style="font-size:18px;margin-top:0">Brilliant focus. Time for a stretch and a drink if you want one.</p>'
+    +'<p>Part 2 has three more puzzle types. You can carry on now, or come back later - your answers are saved.</p>'
+    +'<button class="kbtn" data-nv="cont">▶️ Keep going</button><div style="height:10px"></div><button class="kbtn ghost" data-nv="later">💾 Save and finish later</button></div>';
+}
+function nvItemScreen(run,type){
+  const T=nvT(type), cur=nvCurItem(run,type), it=cur.item, part=NV_TYPES.findIndex(x=>x.id===type)<3?1:2;
+  return topbar()+'<div class="nvhead">Part '+part+' of 2 &middot; '+nvName(type)+' '+T.em+'</div>'
+    +'<div class="kcard"><div class="nvprompt">'+esc(T.prompt)+'</div>'+(it.stem?'<div class="nvstem">'+it.stem+'</div>':'')
+    +nvOpts(it,{sel:nvUI.pick,interactive:true})
+    +'<div class="nvbtns"><button class="kbtn ghost" data-nv="unsure">🤔 I\'m not sure</button><button class="kbtn" data-nv="confirm"'+(nvUI.pick==null?' disabled':'')+'>✅ That\'s my answer</button></div></div>'
+    +'<p class="small muted">Do your best. If it feels too tricky, tap "I\'m not sure" - that is fine!</p><button class="link" data-nv="later">Save and finish later</button>';
+}
+
+/* ---------- results ---------- */
+function nvGrown(run){
+  const an=nvAnalyse(run), plan=nvPlan(an), prev=nvLastDone(1)&&nvLastDone(1)!==run?nvLastDone(1):null, pa=prev?nvAnalyse(prev):null;
+  const dt=new Date(run.end).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"});
+  let h='<p class="sub">Completed '+dt+' &middot; '+run.items.length+' puzzles &middot; about '+Math.max(1,Math.round((run.items.reduce((s,x)=>s+x.ms,0))/60000))+' min of puzzle time</p>';
+  h+='<div class="card"><b>Where to start</b><div class="small" style="margin-top:6px">'
+    +'Warm-up with <b>'+esc(nvT(plan.warm).name)+'</b> (strongest). Then focus on '+plan.focus.map(i=>'<b>'+esc(nvT(i).name)+'</b>').join(', ')+'.'
+    +(plan.keep.length?' Keep ticking over: '+plan.keep.map(i=>esc(nvT(i).name)).join(', ')+'.':'')+'</div></div>';
+  NV_TYPES.forEach(T=>{
+    const a=an[T.id], acc=a.n?Math.round(a.ok*100/a.n):0, col=a.eff>=3?"var(--ok)":a.eff===2?"var(--blank)":"var(--bad)";
+    const errs=Object.keys(a.errs).sort((x,y)=>a.errs[y]-a.errs[x]).slice(0,2).map(k=>k+' ('+a.errs[k]+')').join(', ');
+    const delta=pa?(a.eff>pa[T.id].eff?' <span class="up">&#9650; from '+pa[T.id].eff+'</span>':a.eff<pa[T.id].eff?' <span class="down">&#9660; from '+pa[T.id].eff+'</span>':' <span class="muted">(unchanged)</span>'):'';
+    h+='<div class="card"><div class="row"><b>'+T.em+' '+esc(T.name)+'</b><b style="color:'+col+'">Level '+a.eff+' of 4'+delta+'</b></div>'
+      +'<div class="meter"><i style="width:'+(a.eff*25)+'%;background:'+col+'"></i></div>'
+      +'<div class="small"><b>'+NVLEV[a.eff]+'</b>'+(a.stretch?' &middot; tried one stretch puzzle correctly (needs two to count)':'')+'</div>'
+      +'<div class="small muted" style="margin-top:4px">'+a.ok+' of '+a.n+' correct &middot; median '+nvSecs(a.med)+' per puzzle'+(a.skips?' &middot; '+a.skips+' "not sure"':'')+'</div>'
+      +(errs?'<div class="small" style="margin-top:4px">Slips to watch: '+esc(errs)+'</div>':'')
+      +'<div class="small muted" style="margin-top:4px">Format reference: '+esc(T.src)+'</div></div>';
+  });
+  h+='<h2>Suggested practice</h2><div class="card"><div class="small">'
+    +'Start each area at the level shown (never below Level 1). Short sessions of about 10 minutes, a few times a week, usually work better for this age than long ones. Retest in a few weeks with fresh puzzles to see progress.</div>'
+    +'<div class="stats" style="grid-template-columns:repeat(2,1fr)">'+[plan.warm].concat(plan.focus).concat(plan.keep).map(id=>'<button class="chip" data-nv="practice" data-v="'+id+'">'+nvT(id).em+' '+esc(nvT(id).name)+' - L'+Math.max(1,nv.start[id]||an[id].eff)+'</button>').join("")+'</div></div>';
+  h+='<div class="foot"><button data-nv="review">'+(nvUI.review?'Hide':'Review')+' every puzzle</button><button data-nv="start">Retest with new puzzles</button></div>';
+  h+='<div class="foot" style="margin-top:8px"><button data-nv="export">Export puzzle log (CSV)</button><button data-nv="reset">Reset reasoning data</button></div>';
+  if(nvUI.review)h+=nvReview(run);
+  h+='<details class="card" style="margin-top:14px"><summary><b>How this check-up works, and its limits</b></summary><div class="small" style="margin-top:8px">'
+    +'<div>&bull; Six non-verbal reasoning types, each a four-level ladder: Warm-up, Core, Challenge, Stretch (11+ style). Types and formats follow the published CAT4 non-verbal descriptions and common 11+ question types.</div>'
+    +'<div>&bull; Each type starts at Level 1 and moves up after a correct answer. A miss gets one retry with a new puzzle at the same level. Two misses in a row stops that type, so she is never stuck on puzzles that are too hard.</div>'
+    +'<div>&bull; Level 4 needs two correct answers to count, because with five options one correct answer can be a guess. "Not sure" counts as a miss.</div>'
+    +'<div>&bull; Untimed by design, with each puzzle time recorded. No feedback is shown during the check-up. A break is offered halfway.</div>'
+    +'<div>&bull; Limits: this is about 15-25 puzzles in total, so treat levels as a starting point, not a score. Difficulty levels are my own design, not calibrated against norms. All puzzles are original, in the style of those formats, and are not real test items. It does not predict test results or banding.</div></div></details>';
+  return h;
+}
+function nvKidResults(run){
+  const an=nvAnalyse(run), plan=nvPlan(an);
+  let h='<h1>'+(nvUI.justDone?'Check-up complete! 🎉':'My Explorer Map 🗺️')+'</h1><p class="sub">Look what you found out about your brain power!</p>';
+  NV_TYPES.forEach(T=>{const a=an[T.id];
+    h+='<div class="kcard"><div class="row"><b>'+T.em+' '+esc(T.kid)+'</b><span class="stars" style="margin:0;font-size:18px">'+"⭐".repeat(a.eff)+'<span class="dim">'+"⭐".repeat(4-a.eff)+'</span></span></div><div class="small">'+NVLEVK[a.eff]+'</div></div>';});
+  h+='<h2>🎯 Your quest plan</h2><div class="kcard"><div class="small" style="margin-bottom:8px">Start with a warm-up you are good at, then power up the rest!</div>';
+  h+='<button class="kbtn" data-nv="practice" data-v="'+plan.warm+'">🔥 Warm-up: '+nvT(plan.warm).em+' '+esc(nvT(plan.warm).kid)+'</button>';
+  plan.focus.forEach(id=>{h+='<div style="height:10px"></div><button class="kbtn alt" data-nv="practice" data-v="'+id+'">🌱 Power up: '+nvT(id).em+' '+esc(nvT(id).kid)+'</button>';});
+  h+='</div><p class="small muted">Try the check-up again in a few weeks and watch your stars grow!</p>';
+  return h;
+}
+function nvReview(run){
+  let h='<h2>Every puzzle</h2>';
+  run.items.forEach((x,i)=>{
+    const it=nvGen(x.t,x.l,nvSeed(run.seed,x.t,x.l,x.k)), T=nvT(x.t);
+    h+='<div class="card"><div class="row"><b>'+(i+1)+'. '+T.em+' '+esc(T.name)+' &middot; '+NVLTXT[x.l]+'</b><span class="badge '+(x.ok?'Correct':x.skip?'Blank':'Wrong')+'">'+(x.ok?'Correct':x.skip?'Not sure':'Wrong')+'</span></div>'
+      +'<div class="small muted">'+nvSecs(x.ms)+(x.ok?'':(x.skip?'':' &middot; '+esc(TAGCAT[x.tag]||'other')))+'</div>'
+      +(it.stem?'<div class="nvstem">'+it.stem+'</div>':'')+nvOpts(it,{reveal:true,pick:x.pi})
+      +'<div class="tip"><b>The rule</b>'+nvList(it.why)+'</div></div>';
+  });
+  return h;
+}
+function nvCSV(){
+  const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"', rows=[["Run","Date","Type","Level","Instance","Result","Seconds","Wrong-pick style"].map(q).join(",")];
+  nv.runs.forEach(r=>r.items.forEach(x=>rows.push([r.id,new Date(r.start).toISOString().slice(0,10),nvT(x.t).name,x.l,x.k+1,x.ok?"Correct":x.skip?"Not sure":"Wrong",Math.round(x.ms/1000),x.ok?"":(TAGCAT[x.tag]||x.tag)].map(q).join(","))));
+  const b=new Blob([rows.join("\n")],{type:"text/csv"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="reasoning_log.csv";document.body.appendChild(a);a.click();a.remove();
+}
+
+/* ---------- practice ---------- */
+function nvPracticeStart(type){
+  const last=nvLastDone(), an=last?nvAnalyse(last):null;
+  const lvl=Math.max(1,Math.min(4,nv.start[type]||(an?an[type].eff:1)||1));
+  nvUI.pr={type:type,lvl:lvl,n:0,ok:0,k:0,seed:(Date.now()%2147483647)>>>0,fb:false,item:null,pick:null,hint:false,up:0,down:0,done:false};
+  nvUI.screen="practice";
+}
+function nvPracticeItem(p){
+  const key=p.type+"-"+p.lvl+"-"+p.k;
+  if(!p.item||p.item.key!==key)p.item={key:key,it:nvGen(p.type,p.lvl,hash32(p.seed,"pr",p.type,p.lvl,p.k))};
+  return p.item.it;
+}
+function nvPracticeView(){
+  const p=nvUI.pr; if(!p){nvUI.screen="home";return nvView();}
+  const T=nvT(p.type), kid=mode==="kid";
+  if(p.done){
+    const msg=p.ok>=5?"Wow - brilliant! 🌟":p.ok>=3?"Great effort! 💪":"Good try - every puzzle makes you stronger! 🌱";
+    return topbar()+'<h1>'+T.em+' Round done!</h1><div class="kcard"><div class="kmid">'+p.ok+' right out of '+p.n+'</div><p>'+msg+'</p><p class="small">Next time you will start at <b>Level '+p.lvl+'</b> ('+NVLTXT[p.lvl]+').</p>'
+      +'<button class="kbtn" data-nv="practice" data-v="'+p.type+'">🔁 Another round</button><div style="height:10px"></div><button class="kbtn ghost" data-nv="pend">🗺️ Back to my map</button></div>';
+  }
+  const it=nvPracticeItem(p);
+  let h=topbar()+'<div class="nvhead">Practice &middot; '+nvName(p.type)+' '+T.em+' &middot; Level '+p.lvl+' ('+NVLTXT[p.lvl]+') &middot; puzzle '+(p.n+1)+' of 6</div>'
+    +'<div class="kcard"><div class="nvprompt">'+esc(T.prompt)+'</div>'+(it.stem?'<div class="nvstem">'+it.stem+'</div>':'')
+    +nvOpts(it,{sel:p.pick,interactive:!p.fb,reveal:p.fb,pick:p.pick});
+  if(p.fb){
+    const ok=p.pick===it.ans;
+    h+='<div class="ansbox" style="'+(ok?'':'background:var(--blank-bg);color:var(--blank)')+'">'+(ok?'🎉 Yes! Well done!':'Not quite - have a look at the trick below 👇')+'</div>'
+      +'<div class="tip"><b>🔎 The rule</b>'+nvList(it.why)+'</div>'
+      +'<button class="kbtn" style="margin-top:12px" data-nv="pnext">'+(p.n+1>=6?'🏁 Finish round':'➡️ Next puzzle')+'</button>';
+  }else{
+    if(p.hint)h+='<div class="tip"><b>💡 Hint</b>'+nvList(it.hint)+'<button class="hidebtn" data-nv="phide">🙈 Hide hint</button></div>';
+    h+='<div class="nvbtns">'+(p.hint?'':'<button class="kbtn ghost" data-nv="phint">💡 Hint</button>')+'<button class="kbtn" data-nv="pcheck"'+(p.pick==null?' disabled':'')+'>✅ Check</button></div>';
+  }
+  return h+'</div><button class="link" data-nv="pend">Leave practice</button>';
+}
+function nvPracticeAfter(){
+  const p=nvUI.pr, it=nvPracticeItem(p), ok=p.pick===it.ans;
+  nv.practice.push({t:p.type,l:p.lvl,ok:ok,ts:Date.now()}); if(nv.practice.length>600)nv.practice=nv.practice.slice(-600);
+  p.n++; p.k++; if(ok){p.ok++;p.up++;p.down=0;if(p.up>=2&&p.lvl<4){p.lvl++;p.up=0;}}else{p.down++;p.up=0;if(p.down>=2&&p.lvl>1){p.lvl--;p.down=0;}}
+  p.fb=false;p.pick=null;p.hint=false;p.item=null;
+  if(p.n>=6){p.done=true;nv.start[p.type]=p.lvl;}
+  nvSave();
+}
+
+/* ---------- home + routing ---------- */
+function nvStartCard(){
+  const kid=mode==="kid";
+  return kid
+   ? '<div class="kcard hero"><div class="lvl" style="font-size:20px;font-weight:800">🧭 Explorer Check-up</div><p class="kmsg" style="font-size:17px">Let\'s find your starting point on the brain-power map!</p>'
+     +'<div class="small" style="margin-bottom:12px;color:#fff;opacity:.95">6 puzzle types &middot; about 15 minutes &middot; 2 parts. No pass or fail - it just shows us where to start. It starts easy and gets trickier. If a puzzle is too tricky, tap "I\'m not sure".</div>'
+     +'<button class="kbtn" data-nv="start">🚀 Start the check-up</button></div>'
+   : '<div class="card"><b>Starting-point assessment</b><div class="small" style="margin:6px 0 10px">Six non-verbal reasoning types, adaptive four-level ladder per type, about 15-25 puzzles in two sittings. Untimed, with no feedback during the test. It produces a level per type and a practice plan.</div><button class="kbtn alt" data-nv="start">Start the check-up</button></div>';
+}
+function nvHome(){
+  const run=nvRun(), last=nvLastDone(), kid=mode==="kid";
+  let h=topbar()+(kid?'<h1>Side quests 🗺️</h1><p class="sub">Brain-power puzzles for sharp thinkers!</p>':'<h1>Reasoning check-up</h1><p class="sub">Non-verbal reasoning &middot; starting point and practice plan</p>');
+  if(run){
+    const st=nvStep(run), n=run.items.length;
+    h+='<div class="kcard hero"><div class="lvl" style="font-size:19px;font-weight:800">🧭 Check-up in progress</div><p class="kmsg">'+(kid?'You have done '+n+' puzzle'+(n===1?'':'s')+' so far. Ready to carry on?':n+' puzzles answered so far.')+'</p><button class="kbtn" data-nv="resume">▶️ Continue</button></div>';
+  }else if(!last){
+    h+=nvStartCard();
+  }
+  if(last)h+=kid?nvKidResults(last):nvGrown(last);
+  return h;
+}
+function nvView(){
+  if(nvUI.screen==="practice")return nvPracticeView();
+  if(nvUI.screen==="run"){
+    const run=nvRun(); if(!run){nvUI.screen="home";return nvHome();}
+    const st=nvStep(run);
+    if(st.screen==="intro")return nvIntroScreen(st.type);
+    if(st.screen==="break")return nvBreakScreen();
+    if(st.screen==="item")return nvItemScreen(run,st.type);
+    nvUI.screen="home";
+  }
+  return nvHome();
+}
+function nvAct(a,v){
+  const go=()=>{window.scrollTo(0,0);render();};
+  const run=nvRun(), p=nvUI.pr;
+  switch(a){
+    case "start": nvNew(); return go();
+    case "resume": nvUI.screen="run"; nvUI.cur=null; return go();
+    case "begin": if(run){const st=nvStep(run);if(st.screen==="intro"){run.intro[st.type]=true;nvSave();nvUI.cur=null;}} return go();
+    case "cont": if(run){run.breakSeen=true;nvSave();} return go();
+    case "later": nvUI.screen="home"; nvUI.cur=null; return go();
+    case "pick": if(nvUI.screen==="practice"&&p){if(!p.fb)p.pick=+v;}else nvUI.pick=+v; return render();
+    case "confirm": if(run&&nvUI.pick!=null){nvRecord(run,false);if(run.end){nvUI.justDone=true;nvUI.screen="home";}} return go();
+    case "unsure": if(run){nvRecord(run,true);if(run.end){nvUI.justDone=true;nvUI.screen="home";}} return go();
+    case "practice": nvPracticeStart(v); return go();
+    case "phint": if(p)p.hint=true; return render();
+    case "phide": if(p)p.hint=false; return render();
+    case "pcheck": if(p&&p.pick!=null)p.fb=true; return render();
+    case "pnext": if(p)nvPracticeAfter(); return go();
+    case "pend": nvUI.screen="home"; nvUI.pr=null; return go();
+    case "review": nvUI.review=!nvUI.review; return render();
+    case "export": return nvCSV();
+    case "reset": if(confirm("Delete all check-up results and practice history on this device?")){nv={runs:[],practice:[],start:{}};nvSave();nvUI={screen:"home",pick:null,cur:null,pr:null,review:false,justDone:false};render();} return;
+  }
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button, .q"); if (!t) return;
+  if (t.dataset.nv){ return nvAct(t.dataset.nv, t.dataset.v); }
+  if (t.dataset.mode){ mode = mode === "kid" ? "parent" : "kid"; saveMode(); tab = "overview"; window.scrollTo(0, 0); return render(); }
+  if (t.dataset.tab){ tab = t.dataset.tab; window.scrollTo(0, 0); return render(); }
+  /* kid mode actions */
+  if (t.dataset.kgo){ K = { f: t.dataset.kgo, s: "all" }; tab = "questions"; window.scrollTo(0, 0); return render(); }
+  if (t.dataset.ks){ K = { f: t.dataset.kf || "todo", s: t.dataset.ks }; tab = "questions"; window.scrollTo(0, 0); return render(); }
+  if (t.dataset.kf){ K.f = t.dataset.kf; return render(); }
+  if (t.dataset.hint){ hints.add(t.dataset.hint); return render(); }
+  if (t.dataset.unhint){ hints.delete(t.dataset.unhint); return render(); }
+  if (t.dataset.show){ shown.add(t.dataset.show); return render(); }
+  if (t.dataset.conq){ conq.add(t.dataset.conq); saveConq(); toast("🎉 Mission conquered! +1 ⭐"); return render(); }
+  if (t.dataset.unconq){ conq.delete(t.dataset.unconq); shown.delete(t.dataset.unconq); hints.delete(t.dataset.unconq); saveConq(); return render(); }
+  /* grown-up mode actions */
+  if (t.dataset.go){
+    F = { a: "all", r: "all", s: "all", sec: "all" };
+    if (t.dataset.go === "a") F.a = t.dataset.v; else F.s = t.dataset.v;
+    F.r = t.dataset.r || "all"; tab = "questions"; window.scrollTo(0, 0); return render();
+  }
+  if (t.dataset.f){ F[t.dataset.f] = t.dataset.v; return render(); }
+  if (t.dataset.clear){ F = { a: "all", r: "all", s: "all", sec: "all" }; return render(); }
+  if (t.dataset.set){ const id = t.dataset.id, d = DATA.find(x => qid(x) === id);
+    if (t.dataset.set === d.r) delete overrides[id]; else overrides[id] = t.dataset.set; save(); return render(); }
+  if (t.dataset.hide){ hideAns = !hideAns; revealed.clear(); return render(); }
+  if (t.dataset.reveal){ revealed.add(t.dataset.reveal); return render(); }
+  if (t.dataset.export){ return csv(); }
+  if (t.dataset.reset){ if (confirm("Reset all your edits back to the original results?")){ overrides = {}; save(); render(); } return; }
+  if (t.dataset.resetkid){ if (confirm("Reset her Kid-mode progress (conquered missions)?")){ conq.clear(); hints.clear(); shown.clear(); saveConq(); render(); } return; }
+  if (t.classList.contains("q")){ t.classList.toggle("open"); }
+});
+document.addEventListener("change", e => {
+  if (e.target.dataset.sel){ F[e.target.dataset.sel] = e.target.value; render(); }
+  if (e.target.dataset.ksel){ K.s = e.target.value; render(); }
+});
+
+render();
+try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+try{ if("serviceWorker" in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register("sw.js").catch(()=>{}); }catch(e){}
