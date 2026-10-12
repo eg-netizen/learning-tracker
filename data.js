@@ -4,7 +4,7 @@
    m grown-up method, m2 kid method, h2 kid hint, img SVG, w kid "what happened", wp grown-up "what happened". */
 
 /* Clock face drawn from code (same geometry as the original hand-written SVG). */
-function clockSVG(){
+function clockSVG(hh,mm,label){
   var cx=110, cy=108, s='<svg viewBox="0 0 220 245" role="img" aria-label="Analogue clock"><circle class="face" cx="110" cy="108" r="92"/>';
   for(var i=0;i<60;i++){
     var a=i*6*Math.PI/180, r1=(i%5===0)?80:86, r2=(i%5===0)?90:90;
@@ -15,10 +15,16 @@ function clockSVG(){
     var b=n*30*Math.PI/180, tx=cx+68*Math.sin(b), ty=cy-68*Math.cos(b)+5;
     s+='<text class="svgtxt" x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" text-anchor="middle">'+n+'</text>';
   }
-  s+='<line class="hand" stroke-width="6" x1="110" y1="108" x2="66.1" y2="110.7"/>'
-   + '<line class="hand" stroke-width="3.5" x1="110" y1="108" x2="63.2" y2="56.0"/>'
+  var hx="66.1", hy="110.7", mx="63.2", my="56.0";
+  if(hh!==undefined){
+    var ha=((hh%12)+mm/60)*30*Math.PI/180, ma=mm*6*Math.PI/180;
+    hx=(cx+44*Math.sin(ha)).toFixed(1); hy=(cy-44*Math.cos(ha)).toFixed(1);
+    mx=(cx+70*Math.sin(ma)).toFixed(1); my=(cy-70*Math.cos(ma)).toFixed(1);
+  }
+  s+='<line class="hand" stroke-width="6" x1="110" y1="108" x2="'+hx+'" y2="'+hy+'"/>'
+   + '<line class="hand" stroke-width="3.5" x1="110" y1="108" x2="'+mx+'" y2="'+my+'"/>'
    + '<circle class="hub" cx="110" cy="108" r="5"/>'
-   + '<text class="svgtxt" x="110" y="236" text-anchor="middle">evening \u{1F319}</text></svg>';
+   + '<text class="svgtxt" x="110" y="236" text-anchor="middle">'+(label||"evening \u{1F319}")+'</text></svg>';
   return s;
 }
 
@@ -97,5 +103,161 @@ const DATA = [
 {"a":3,"t":"T2","p":"C","q":12,"s":"Money","h":"a 250g, b 225g","c":"a 250g, b 125g","r":"Wrong","n":"Part a right. Part b: 50p is half of £1, so half of 250g = 125g","k":"Baby food is sold at £2 per ½kg. How many grams can be bought for a) £1 and b) 50p?","m":"£2 buys ½kg = 500g.\na) £1 is half of £2, so half of 500g = 250g.\nb) 50p is half of £1, so half of 250g = 125g (half of 200 = 100, half of 50 = 25).","m2":"£2 buys 500g (that's ½kg).\na) £1 is half the money, so half the baby food: half of 500g = 250g ✅\nb) 50p is half of £1, so halve 250g again: half of 200 = 100, half of 50 = 25. That's 125g!","h2":"£2 buys 500g (that's ½kg).\nPart a: £1 is half of £2. So you get half as much.\nPart b: 50p is half of £1. Halve again. Try halving 200, then 50.","img":"","w":"Part a: 250g is right! ✅\nPart b: 50p is half of £1, so you get half of 250g. Half of 200 is 100 and half of 50 is 25: 125g. You wrote 225g.","wp":"Part a correct (250g). Part b she wrote 225g; the correct answer is 125g (half of 250g). 225 may come from taking 25 off rather than halving. Halving 250 in parts (100 + 25) works well."}
 ];
 DATA.forEach(function(d){ if (d.img === "__CLOCK__") d.img = clockSVG(); });
+
+/* ---------- Picture helpers for the "try a similar one" questions ---------- */
+function abacusSVG(dg){
+  var L=["Th","H","T","U"], s='<svg viewBox="0 0 240 170" role="img" aria-label="Abacus with four rods">';
+  for(var i=0;i<4;i++){
+    var x=45+50*i;
+    s+='<text class="svgtxt" x="'+x+'" y="16" text-anchor="middle">'+L[i]+'</text><line class="rod" x1="'+x+'" y1="26" x2="'+x+'" y2="146"/>';
+    for(var j=0;j<dg[i];j++) s+='<circle class="bead" cx="'+x+'" cy="'+(136-19*j)+'" r="9"/>';
+  }
+  return s+'<line class="base" x1="15" y1="148" x2="225" y2="148"/></svg>';
+}
+function shadedSVG(list){
+  var pos=[[15,24],[175,24],[15,116],[175,116]], s='<svg viewBox="0 0 320 190" role="img" aria-label="Four rectangles">';
+  list.forEach(function(r,i){
+    var x0=pos[i][0], y0=pos[i][1], cw=120/r.cols, ch=60/r.rows, n=0;
+    s+='<text class="svgtxt" x="'+x0+'" y="'+(y0-8)+'">'+r.label+'</text>';
+    for(var y=0;y<r.rows;y++) for(var x=0;x<r.cols;x++){
+      s+='<rect class="'+(n<r.shaded?"shade":"cell")+'" x="'+(x0+x*cw).toFixed(1)+'" y="'+(y0+y*ch).toFixed(1)+'" width="'+cw.toFixed(1)+'" height="'+ch.toFixed(1)+'"/>'; n++;
+    }
+  });
+  return s+'</svg>';
+}
+function tinsSVG(labels){
+  var s='<svg viewBox="0 0 240 90" role="img" aria-label="Four tins with their masses">';
+  labels.forEach(function(t,i){
+    s+='<rect class="cell" x="'+(10+58*i)+'" y="14" width="50" height="62" rx="6"/><text class="svgtxt" x="'+(35+58*i)+'" y="50" text-anchor="middle">'+t+'</text>';
+  });
+  return s+'</svg>';
+}
+function tableSVG(vals){
+  var s='<svg viewBox="0 0 240 80" role="img" aria-label="Number of children in each class">';
+  vals.forEach(function(v,i){
+    s+='<rect class="cell" x="'+(8+56*i)+'" y="10" width="56" height="28"/><text class="svgtxt" x="'+(36+56*i)+'" y="29" text-anchor="middle">Class '+(i+1)+'</text>'
+     + '<rect class="cell" x="'+(8+56*i)+'" y="38" width="56" height="28"/><text class="svgtxt" x="'+(36+56*i)+'" y="57" text-anchor="middle">'+v+'</text>';
+  });
+  return s+'</svg>';
+}
+
+/* ---------- SIM: one similar multiple-choice question for each to-do question ----------
+   q question, o four options, a index of the right option, h hint lines (gentle first), e how it works, img picture. */
+var _simN = 0;
+function mc(q, right, wrong, h, e, img){
+  var pos = (_simN++ * 3 + 1) % 4, o = wrong.slice(); o.splice(pos, 0, right);
+  return {q:q, o:o, a:pos, h:h, e:e, img:img||""};
+}
+const SIM = {
+"1-T1-A-1": mc("Write the number shown on the abacus in words.", "four thousand and thirty-six", ["four thousand three hundred and six","four thousand and sixty-three","four hundred and thirty-six"],
+  ["Count the beads on each rod: Th, H, T, U. An empty rod means zero.","Say the parts out loud, thousands first, and skip the part that is zero.","Pop an 'and' in before the last part."],
+  "4 thousands, 0 hundreds, 3 tens and 6 ones is 4036: four thousand and thirty-six.", abacusSVG([4,0,3,6])),
+"1-T1-A-2": mc("(4 × 9) + 7", "43", ["33","53","16"],
+  ["Brackets first! What is 4 × 9?","Now add the 7 by jumping to the next ten first."],
+  "4 × 9 = 36. Jump 36 + 4 = 40, then add the 3 left over: 43."),
+"1-T1-A-4": mc("Change 7cm 6mm into millimetres.", "76", ["760","13","67"],
+  ["1cm = 10mm. How many mm are in 7cm?","Then add the 6mm that is left over."],
+  "7cm = 70mm. Add the 6mm: 70 + 6 = 76mm."),
+"1-T1-A-9": mc("47p + 70p. Give the answer in pounds.", "£1.17", ["£1.7","£1.07","£11.70"],
+  ["Add the pence first: 47 + 70.","Then change to pounds: 100p = £1.","Check the pence part: how many digits come after the point?"],
+  "47 + 70 = 117p. That is £1 and 17p, so £1.17."),
+"1-T1-A-10": mc("How many 20p coins are worth £3?", "15", ["6","30","5"],
+  ["How many 20p coins make £1?","You have £3, so multiply!"],
+  "Five 20p coins make £1. For £3 you need 3 × 5 = 15 coins."),
+"1-T1-A-12": mc("400 − 265", "135", ["235","145","125"],
+  ["Count UP instead of taking away! How far from 265 up to 300?","How far from 300 up to 400?","Add your two jumps together."],
+  "265 to 300 is 35. 300 to 400 is 100. 35 + 100 = 135."),
+"2-T1-B-3": mc("What is the change from 50p after spending 34p?", "16p", ["26p","24p","84p"],
+  ["Count up from 34p to 50p.","Jump to 40p first. How far was that?","Then add the jump from 40p to 50p."],
+  "34 to 40 is 6. 40 to 50 is 10. 6 + 10 = 16p."),
+"2-T1-B-4": mc("Multiply £0.30 by 6.", "£1.80", ["£18.00","£0.18","£1.08"],
+  ["Work in pence first: 30p × 6. Try 3 × 6 and tidy up the zero.","Then change the pence into pounds.","Sense-check: each coin is less than £1, so can 6 of them be £18?"],
+  "3 × 6 = 18, so 30 × 6 = 180p. 180p is £1.80."),
+"2-T1-B-5": mc("Round 76 to the nearest 10.", "80", ["70","90","75"],
+  ["Look at the ones digit. Is it 5 or more?","If it is 5 or more, round UP to the next ten.","Your answer must end in 0!"],
+  "The ones digit is 6, which is 5 or more, so round UP to 80."),
+"2-T1-B-7": mc("Add 38p, 25p and 40p. Give the answer in pounds.", "£1.03", ["£103.00","£1.30","£10.30"],
+  ["Add the two easiest amounts first.","Then add the last one: for 38, add 40 and take off 2.","Change to pounds at the end: 100p = £1."],
+  "25 + 40 = 65. 65 + 38 = 65 + 40 - 2 = 103p. That is £1.03."),
+"2-T1-B-8": mc("32p is some 5p coins plus six 2p coins. How many 5p coins?", "4", ["3","5","6"],
+  ["Six 2p coins are worth how many pence?","Take that away from 32p.","What is left is made of 5ps. How many 5s fit in it?"],
+  "Six 2ps are 12p. 32 - 12 = 20p left. 20 ÷ 5 = 4 coins."),
+"2-T1-B-10": mc("Take 47p away from £1.", "53p", ["63p","43p","57p"],
+  ["Count up from 47p to £1 (that is 100p).","Jump to 50p first. How far was that?","Then from 50p to 100p. Add your two jumps."],
+  "47 to 50 is 3. 50 to 100 is 50. 3 + 50 = 53p."),
+"2-T1-C-4": mc("This clock is 12 minutes slow and it's evening. What is the correct time?", "7:52pm", ["7:28pm","8:52pm","6:52pm"],
+  ["Step 1: read the clock. The short hand is between two numbers, so use the earlier one. The long hand: each number is 5 minutes.","Step 2: 'slow' means the clock shows a time that is too early, so ADD the 12 minutes.","Step 3: it's evening, so write pm."],
+  "The clock says 7:40. A slow clock is too early, so add 12 minutes: 7:40 + 12 = 7:52. Evening, so 7:52pm.", clockSVG(7,40,"evening \u{1F319}")),
+"2-T1-C-5": mc("Eight 5p coins and fourteen 2p coins. How much less are the 2p coins worth?", "12p", ["22p","68p","10p"],
+  ["Work out each pile separately.","Eight 5p coins: 8 × 5. Fourteen 2p coins: double 14.","Then find the difference: bigger - smaller."],
+  "8 × 5 = 40p. Double 14 = 28p. 40 - 28 = 12p less."),
+"2-T1-C-6": mc("100g of pasta costs 30p. How much for 250g?", "75p", ["60p","90p","£7.50"],
+  ["How many 100g are in 250g? Some whole lots plus half a lot.","Work out the cost of each part, then add them."],
+  "250g is 2 lots of 100g plus half a lot. 2 × 30 = 60p. Half of 30 = 15p. 60 + 15 = 75p."),
+"2-T1-C-10": mc("½kg costs 62p. How much does ¾kg cost?", "93p", ["31p","96p","£1.24"],
+  ["Find ¼kg first. It is half of the cost of ½kg.","¾kg is 3 lots of ¼kg.","Multiply in parts: 3 × 30, then 3 × 1."],
+  "¼kg = half of 62p = 31p. ¾kg = 3 × 31 = 93p."),
+"2-T1-C-11": mc("Posts along a fence are 50m apart. How far is it between 9 posts, in metres?", "400", ["450","350","40"],
+  ["Careful! Draw it: 2 posts have how many gaps? 3 posts?","So 9 posts have how many gaps?","Multiply the gaps by 50m."],
+  "9 posts have 8 gaps. 8 × 50 = 400m."),
+"2-T1-C-12": mc("Which two rectangles have three quarters shaded?", "P and R", ["P and Q","Q and S","R and S"],
+  ["Three quarters means 3 out of every 4 equal parts.","For each shape, count the shaded parts and ALL the parts.","Can the fraction be made simpler? Divide the top and bottom by the same number."],
+  "P: 6 out of 8 = ¾ ✅. Q: 2 out of 4 = ½. R: 9 out of 12 = ¾ ✅. S: 3 out of 5 can't be simplified to ¾.",
+  shadedSVG([{label:"P",cols:4,rows:2,shaded:6},{label:"Q",cols:2,rows:2,shaded:2},{label:"R",cols:4,rows:3,shaded:9},{label:"S",cols:5,rows:1,shaded:3}])),
+"2-T2-A-4": mc("Change 76mm into cm and mm.", "7cm 6mm", ["6cm 7mm","76cm","7cm 60mm"],
+  ["10mm = 1cm.","How many whole cm are in 76mm?","How many mm are left over?"],
+  "70mm = 7cm and there is 6mm left: 7cm 6mm."),
+"2-T2-A-5": mc("(7 × 12) + 8", "92", ["102","82","15"],
+  ["Brackets first: 7 × 12. Try 7 × 10 and 7 × 2, then add.","Now add 8: jump to the next ten first.","Check how many digits your answer should have."],
+  "7 × 12 = 84. 84 + 6 = 90, then 2 more = 92."),
+"2-T2-A-6": mc("Change 307cm into m and cm.", "3m 7cm", ["3m 70cm","30m 7cm","307m"],
+  ["100cm = 1m.","How many whole metres are in 307cm?","How many cm are left over?"],
+  "300cm = 3m and there is 7cm left: 3m 7cm."),
+"2-T2-A-8": mc("Write 38 in Roman numerals.", "XXXVIII", ["XXXLIII","XXVIII","XVVVIII"],
+  ["Remember: X = 10, V = 5, I = 1.","Split 38 into tens, a five and some ones.","Write the biggest numerals first."],
+  "38 = 10 + 10 + 10 + 5 + 1 + 1 + 1 = XXXVIII."),
+"2-T2-A-11": mc("Change 95 minutes into hours and minutes.", "1h 35min", ["1h 45min","1h 25min","1h 5min"],
+  ["How many minutes are in 1 hour?","Take that away from 95.","What is left is your minutes."],
+  "95 - 60 = 35, so it is 1h 35min."),
+"3-T2-B-3": mc("Divide 1m by 4. Give the answer in centimetres.", "25", ["20","40","4"],
+  ["How many centimetres are in 1m?","Share 100 into 4 equal groups. Halve it, then halve again."],
+  "1m = 100cm. Half of 100 is 50, half of 50 is 25cm."),
+"3-T2-B-5": mc("10 cost £3. Find the cost of one.", "30p", ["3p","£30","13p"],
+  ["Change £3 into pence first.","Then share it between 10: what happens to a number when you divide by 10?"],
+  "£3 = 300p. 300 ÷ 10 = 30p."),
+"3-T2-B-6": mc("How many quarters are there in 6 whole ones?", "24", ["4","10","64"],
+  ["How many quarters make ONE whole? (Think of a pizza cut in 4.)","You have 6 whole pizzas. How many slices is that? Multiply!"],
+  "One whole is 4 quarters. 6 × 4 = 24 quarters."),
+"3-T2-B-7": mc("76p = 6 ten-pence coins + ☐ two-pence coins. How many 2p coins?", "8", ["16","6","10"],
+  ["6 ten-pence coins are worth how many pence?","Take that away from 76p. What is left?","How many 2p coins make what is left?"],
+  "6 × 10p = 60p. 76 - 60 = 16p. 16 ÷ 2 = 8 coins."),
+"3-T2-B-10": mc("How many minutes from 8:46 a.m. to 9:12 a.m.?", "26", ["34","14","36"],
+  ["Jump to the next o'clock first. How many minutes from 8:46 to 9:00?","Then add the minutes from 9:00 to 9:12."],
+  "8:46 to 9:00 is 14 minutes. 9:00 to 9:12 is 12 more. 14 + 12 = 26."),
+"3-T2-B-11": mc("One costs £0.69. Find the cost of three.", "£2.07", ["£2.10","£2.27","£2.70"],
+  ["69p is just 1p less than 70p. Do 3 × 70p first.","Then fix the extra: you used 70 instead of 69 three times.","Change to pounds at the end."],
+  "3 × 70p = 210p. Take off the 3 extra pennies: 207p = £2.07."),
+"3-T2-C-1": mc("Take two thousand and thirty from 3333.", "1303", ["1313","1033","1503"],
+  ["Write 'two thousand and thirty' in digits. There are no hundreds, so you need a zero there.","Take away in two jumps: the thousands first, then the 30.","Sense check: 3333 minus about 2000 leaves roughly how much?"],
+  "2030 is the number to take away. 3333 - 2000 = 1333. 1333 - 30 = 1303."),
+"3-T2-C-5": mc("Which three coins are given in change from £2 after spending £1.28?", "50p, 20p, 2p", ["50p, 10p, 2p","50p, 20p, 5p","20p, 20p, 10p"],
+  ["Count UP from £1.28 to £2 using real coins.","First jump to a tidy amount like £1.30. Which coin is that?","Keep jumping with coins until you reach £2. Write down each coin."],
+  "£1.28 + 2p = £1.30. + 20p = £1.50. + 50p = £2. The change is 72p: 50p, 20p, 2p."),
+"3-T2-C-6": mc("Write the total mass of the four tins in kilograms and grams.", "1kg 350g", ["1kg 450g","1kg 135g","1350kg"],
+  ["Change every mass to grams first. Half a kg is how many grams?","Add in an easy order, like 200 + 300 first.","Then change back: 1000g = 1kg."],
+  "½kg = 500g. 200 + 300 = 500. 500 + 500 = 1000. 1000 + 350 = 1350g = 1kg 350g.", tinsSVG(["200g","½kg","350g","300g"])),
+"3-T2-C-7": mc("Find the difference between the two largest fractions in this set: 2/10, 9/10, 11/10, 5/10", "2/10", ["6/10","9/10","20/10"],
+  ["Put the four fractions in order, biggest first.","Pick the TWO LARGEST.","They are all tenths, so just subtract the top numbers."],
+  "Biggest first: 11/10, 9/10, 5/10, 2/10. The two largest are 11/10 and 9/10. 11 - 9 = 2, so 2/10."),
+"3-T2-C-9": mc("Sam bought a box containing 600 stickers. How many weeks will they last if he uses 30 stickers each week?", "20 weeks", ["18 weeks","30 weeks","200 weeks"],
+  ["How many weeks would 600 stickers last at 10 a week?","Sam uses THREE times as many each week. What happens to the number of weeks?"],
+  "600 ÷ 10 = 60 weeks. 30 is 3 times 10, so it takes a third of the time: 20 weeks. (Check: 20 × 30 = 600 ✅)"),
+"3-T2-C-11": mc("How many children altogether in the four classes?", "95", ["85","105","90"],
+  ["Look for two classes that add to a friendly number, then pair up the other two.","Add your two answers.","Check: each class has about 25 children, so about how many in four classes?"],
+  "18 + 32 = 50. 17 + 28 = 45. 50 + 45 = 95 children.", tableSVG([18,32,17,28])),
+"3-T2-C-12": mc("Flour is sold at £2 per 400g. How many grams can be bought for a) £1 and b) 50p?", "a 200g, b 100g", ["a 200g, b 150g","a 100g, b 50g","a 400g, b 200g"],
+  ["£2 buys 400g.","Part a: £1 is half of £2. So you get half as much.","Part b: 50p is half of £1. Halve again."],
+  "a) half of 400g = 200g. b) half of 200g = 100g.")
+};
 
 const ATT = {"1":{"label":"Test 1, Part A","start":"9:47","end":"9:52"},"2":{"label":"T1 B & C, T2 A","start":"6:15","end":"6:30"},"3":{"label":"T2 B & C","start":"7:35","end":"7:50"}};

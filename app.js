@@ -6,9 +6,8 @@ function save(){ try { localStorage.setItem(KEY, JSON.stringify(overrides)); } c
 let conq = new Set();
 try { conq = new Set(JSON.parse(localStorage.getItem(CKEY) || "[]")); } catch(e) { conq = new Set(); }
 function saveConq(){ try { localStorage.setItem(CKEY, JSON.stringify([...conq])); } catch(e) {} }
-let mode = "parent";
-try { mode = localStorage.getItem(MKEY) === "kid" ? "kid" : "parent"; } catch(e) {}
-function saveMode(){ try { localStorage.setItem(MKEY, mode); } catch(e) {} }
+let mode = "kid"; /* always opens in Kid mode; the grown-up view is one tap away */
+function saveMode(){}
 
 const qid = d => d.a + "-" + d.t + "-" + d.p + "-" + d.q;
 const res = d => overrides[qid(d)] || d.r;
@@ -31,8 +30,10 @@ let tab = "overview";
 let hideAns = false;
 const revealed = new Set();
 let F = { a: "all", r: "all", s: "all", sec: "all" };
-let K = { f: "todo", s: "all" };
-const hints = new Set(), shown = new Set();
+let K = { f: "todo", s: "all", a: "all" };
+const shown = new Set(), rehint = new Set();
+const hints = new Map(), sims = new Map(), picked = new Set(); /* hints: id -> how many hint lines are showing; sims: id -> similar-question state */
+let selecting = false;
 
 function mins(a){
   const m = ATT[a]; if (!m || !m.start || !m.end) return null;
@@ -173,13 +174,41 @@ function kidOverview(){
   return h;
 }
 
-function kidFiltered(){
+function kidFiltered(a){
+  const A = a === undefined ? K.a : a;
   return DATA.filter(d => {
     if (K.s !== "all" && d.s !== K.s) return false;
+    if (A !== "all" && String(d.a) !== String(A)) return false;
     if (K.f === "todo") return isTodo(d) && !conq.has(qid(d));
     if (K.f === "done") return isTodo(d) && conq.has(qid(d));
     return true;
   });
+}
+const hintLines = d => (d.h2 || d.m2 || d.m || "").split("\n").filter(Boolean);
+function hintBox(lines, n, id, full){
+  let h = '<div class="tip"><b>💡 Hint' + (full || lines.length < 2 ? "" : " " + n + " of " + lines.length) + (full ? "" : " - have another go!") + '</b>'
+    + lines.slice(0, n).map(x => '<div>' + esc(x) + '</div>').join("") + '<div class="hrow">';
+  if (!full && n < lines.length) h += '<button class="hidebtn more" data-morehint="' + id + '">🆘 I need another hint</button>';
+  h += '<button class="hidebtn" data-' + (full ? "rehint" : "unhint") + '="' + id + '">🙈 Hide hint</button></div>';
+  if (!full && lines.length > 1 && n >= lines.length) h += '<div class="small muted">That\'s all the hints - show the answer when you\'re ready!</div>';
+  return h + '</div>';
+}
+function simPanel(id){
+  const S = SIM[id], st = sims.get(id), tried = st.tried;
+  let h = '<div class="simbox"><b class="simh">🧩 Try a similar one!</b><div class="qtext sq">' + esc(S.q) + '</div>' + (S.img ? '<div class="qimg">' + S.img + '</div>' : '') + '<div class="sopts">';
+  S.o.forEach((o, i) => {
+    const cls = st.ok && i === S.a ? " good" : tried.indexOf(i) >= 0 ? " bad" : "";
+    h += '<button class="sopt' + cls + '" data-sopt="' + id + '" data-i="' + i + '"' + (st.ok || tried.indexOf(i) >= 0 ? " disabled" : "") + '>' + esc(o) + '</button>';
+  });
+  h += '</div>';
+  const n = Math.min(st.hint, S.h.length);
+  if (n > 0 && !st.ok) h += '<div class="tip"><b>💡 Hint' + (S.h.length > 1 ? " " + n + " of " + S.h.length : "") + '</b>' + S.h.slice(0, n).map(x => '<div>' + esc(x) + '</div>').join("") + '</div>';
+  if (tried.length && !st.ok) h += '<div class="small simmsg">Not quite - have another go! 💪</div>';
+  if (st.ok) h += '<div class="ansbox">🎉 Yes! <b>' + esc(S.o[S.a]) + '</b></div><div class="tip"><b>✏️ How it works</b><div>' + esc(S.e) + '</div></div>';
+  h += '<div class="row2">';
+  if (!st.ok && st.hint < S.h.length) h += '<button class="kbtn ghost" data-shint="' + id + '">' + (st.hint ? "🆘 Another hint" : "💡 Hint") + '</button>';
+  h += '<button class="kbtn ghost" data-simclose="' + id + '">✖ Close</button></div></div>';
+  return h;
 }
 function kidCard(d){
   const id = qid(d), sk = kname(d.s), tag = "Round " + d.a + " · " + d.t + " " + d.p + " · Q" + d.q;
@@ -187,19 +216,28 @@ function kidCard(d){
     return '<div class="kq"><div class="top"><span class="tag">' + tag + '</span><span class="badge Correct">Nailed it ✅</span></div>'
       + '<div class="small muted" style="margin-top:6px">' + sk[0] + ' ' + esc(sk[1]) + ' - you wrote: <b>' + esc(d.h) + '</b></div></div>';
   }
-  const done = conq.has(id), showAns = shown.has(id) || done;
+  const done = conq.has(id), showAns = shown.has(id) || done, on = picked.has(id);
+  if (selecting){
+    return '<div class="kq' + (done ? " done" : "") + (on ? " picked" : "") + '"><div class="top"><span class="tag">' + tag + '</span>'
+      + '<button class="kpick' + (on ? " on" : "") + '" data-pick="' + id + '" aria-pressed="' + on + '" aria-label="Select this mission">' + (on ? "✓" : "") + '</button></div>'
+      + '<div class="small muted" style="margin-top:6px">' + sk[0] + ' ' + esc(sk[1]) + (done ? " · 🏆 Conquered" : "") + '</div><div class="qtext">' + esc(d.k) + '</div></div>';
+  }
   const wrote = d.h ? 'You wrote: <b>' + esc(d.h) + '</b>' : "You skipped this one - have a go now! 💪";
-  const tip = d.m2 || d.m, hint = d.h2 || tip;
+  const tip = d.m2 || d.m, lines = hintLines(d), n = Math.min(hints.get(id) || 0, lines.length);
   let h = '<div class="kq' + (done ? " done" : "") + '"><div class="top"><span class="tag">' + tag + '</span>' + (done ? '<span class="badge Correct">🏆 Conquered</span>' : "") + '</div>'
     + '<div class="small muted" style="margin-top:6px">' + sk[0] + ' ' + esc(sk[1]) + '</div>'
     + '<div class="qtext">' + esc(d.k) + '</div>' + (d.img ? '<div class="qimg">' + d.img + '</div>' : '') + '<div class="small">' + wrote + '</div>';
-  if (hints.has(id) && !showAns && hint) h += '<div class="tip"><b>💡 Hint - have another go!</b>' + hint.split("\n").map(x => '<div>' + esc(x) + '</div>').join("") + '<button class="hidebtn" data-unhint="' + id + '">🙈 Hide hint</button></div>';
+  if (n > 0 && !showAns) h += hintBox(lines, n, id, false);
   if (showAns) h += '<div class="ansbox">✅ The answer is: <b>' + esc(d.c) + '</b></div>';
   if (showAns && d.w) h += '<div class="tip what"><b>🔎 What happened</b>' + d.w.split("\n").map(x => '<div>' + esc(x) + '</div>').join("") + '</div>';
   if (showAns && tip) h += '<div class="tip"><b>✏️ How it works</b>' + tip.split("\n").map(x => '<div>' + esc(x) + '</div>').join("") + '</div>';
+  if (showAns && rehint.has(id) && lines.length) h += hintBox(lines, lines.length, id, true);
+  if (showAns && sims.has(id) && SIM[id]) h += simPanel(id);
   h += '<div class="row2">';
-  if (!done && !hints.has(id) && !shown.has(id)) h += '<button class="kbtn ghost" data-hint="' + id + '">💡 Hint</button>';
-  if (!done && !shown.has(id)) h += '<button class="kbtn ghost" data-show="' + id + '">👀 Show answer</button>';
+  if (!showAns && n === 0 && lines.length) h += '<button class="kbtn ghost" data-hint="' + id + '">💡 Hint</button>';
+  if (!showAns) h += '<button class="kbtn ghost" data-show="' + id + '">👀 Show answer</button>';
+  if (showAns && lines.length && !rehint.has(id)) h += '<button class="kbtn ghost" data-rehint="' + id + '">💡 See the hint again</button>';
+  if (showAns && SIM[id] && !sims.has(id)) h += '<button class="kbtn ghost" data-sim="' + id + '">🧩 Try a similar one</button>';
   if (!done && shown.has(id)) h += '<button class="kbtn" data-conq="' + id + '">🎉 I get it now!</button>';
   if (done) h += '<button class="kbtn ghost" data-unconq="' + id + '">↩️ Put back in To do</button>';
   h += '</div></div>';
@@ -209,10 +247,20 @@ function kidMissions(){
   const rows = kidFiltered();
   const todo = DATA.filter(isTodo), nTodo = todo.filter(d => !conq.has(qid(d))).length, nDone = todo.length - nTodo;
   const kc = (v, label) => '<button class="kchip' + (K.f === v ? " on" : "") + '" data-kf="' + v + '">' + label + '</button>';
+  const rc = (v, label) => '<button class="kchip' + (String(K.a) === String(v) ? " on" : "") + '" data-ka="' + v + '">' + label + '</button>';
   let h = topbar() + '<h1>Missions 🎯</h1><p class="sub">Have a go in your head first, then tap for help!</p>'
     + '<div class="kchips">' + kc("todo", "🎯 To do (" + nTodo + ")") + kc("done", "✅ Conquered (" + nDone + ")") + kc("all", "📚 Everything") + '</div>'
-    + '<div class="sel" style="margin:12px 0 14px"><select data-ksel="1"><option value="all">All superpowers</option>'
-    + skills.map(s => '<option value="' + esc(s) + '"' + (K.s === s ? " selected" : "") + '>' + kname(s)[0] + ' ' + esc(kname(s)[1]) + '</option>').join("") + '</select></div>';
+    + '<div class="klabel">Which round?</div><div class="kchips">' + rc("all", "🔁 All rounds") + attempts.map(a => rc(a, "Round " + a + " (" + kidFiltered(a).length + ")")).join("") + '</div>'
+    + '<div class="sel" style="margin:12px 0 10px"><select data-ksel="1"><option value="all">All superpowers</option>'
+    + skills.map(s => '<option value="' + esc(s) + '"' + (K.s === s ? " selected" : "") + '>' + kname(s)[0] + ' ' + esc(kname(s)[1]) + '</option>').join("") + '</select></div>'
+    + '<div class="selrow"><button class="kchip' + (selecting ? " on" : "") + '" data-select="1">' + (selecting ? "✖ Stop selecting" : "☑️ Select several") + '</button></div>';
+  if (selecting){
+    const ids = rows.filter(isTodo).map(qid), all = ids.length > 0 && ids.every(i => picked.has(i)), np = picked.size;
+    const undo = K.f === "done";
+    h += '<div class="bulkbar"><span class="cnt"><b>' + np + '</b> selected</span>'
+      + '<button class="kbtn ghost" data-pickall="1"' + (ids.length ? "" : " disabled") + '>' + (all ? "Clear" : "Select all (" + ids.length + ")") + '</button>'
+      + '<button class="kbtn" data-bulk="' + (undo ? "undo" : "done") + '"' + (np ? "" : " disabled") + '>' + (undo ? "↩️ Put back in To do" : "🎉 Mark as done") + '</button></div>';
+  }
   if (!rows.length){
     h += '<div class="empty">' + (K.f === "todo" ? "🎉 No missions left here - you conquered them all!" : K.f === "done" ? "Nothing here yet - conquer a mission to see it here!" : "Nothing to show.") + '</div>';
   }
@@ -869,17 +917,41 @@ function nvAct(a,v){
 document.addEventListener("click", e => {
   const t = e.target.closest("button, .q"); if (!t) return;
   if (t.dataset.nv){ return nvAct(t.dataset.nv, t.dataset.v); }
-  if (t.dataset.mode){ mode = mode === "kid" ? "parent" : "kid"; saveMode(); tab = "overview"; window.scrollTo(0, 0); return render(); }
+  if (t.dataset.mode){ mode = mode === "kid" ? "parent" : "kid"; saveMode(); tab = "overview"; selecting = false; picked.clear(); window.scrollTo(0, 0); return render(); }
   if (t.dataset.tab){ tab = t.dataset.tab; window.scrollTo(0, 0); return render(); }
   /* kid mode actions */
-  if (t.dataset.kgo){ K = { f: t.dataset.kgo, s: "all" }; tab = "questions"; window.scrollTo(0, 0); return render(); }
-  if (t.dataset.ks){ K = { f: t.dataset.kf || "todo", s: t.dataset.ks }; tab = "questions"; window.scrollTo(0, 0); return render(); }
-  if (t.dataset.kf){ K.f = t.dataset.kf; return render(); }
-  if (t.dataset.hint){ hints.add(t.dataset.hint); return render(); }
+  if (t.dataset.kgo){ K = { f: t.dataset.kgo, s: "all", a: "all" }; selecting = false; picked.clear(); tab = "questions"; window.scrollTo(0, 0); return render(); }
+  if (t.dataset.ks){ K = { f: t.dataset.kf || "todo", s: t.dataset.ks, a: "all" }; selecting = false; picked.clear(); tab = "questions"; window.scrollTo(0, 0); return render(); }
+  if (t.dataset.kf){ K.f = t.dataset.kf; picked.clear(); return render(); }
+  if (t.dataset.ka){ K.a = t.dataset.ka; picked.clear(); return render(); }
+  if (t.dataset.select){ selecting = !selecting; picked.clear(); return render(); }
+  if (t.dataset.pick){ const i = t.dataset.pick; if (picked.has(i)) picked.delete(i); else picked.add(i); return render(); }
+  if (t.dataset.pickall){
+    const ids = kidFiltered().filter(isTodo).map(qid);
+    if (ids.length && ids.every(i => picked.has(i))) picked.clear(); else ids.forEach(i => picked.add(i));
+    return render();
+  }
+  if (t.dataset.bulk){
+    const n = picked.size;
+    if (t.dataset.bulk === "done"){ picked.forEach(i => conq.add(i)); toast("🎉 " + n + " mission" + (n === 1 ? "" : "s") + " conquered!"); }
+    else { picked.forEach(i => { conq.delete(i); shown.delete(i); hints.delete(i); rehint.delete(i); sims.delete(i); }); toast("↩️ " + n + " put back in To do"); }
+    saveConq(); picked.clear(); selecting = false; return render();
+  }
+  if (t.dataset.hint){ hints.set(t.dataset.hint, 1); return render(); }
+  if (t.dataset.morehint){ const i = t.dataset.morehint; hints.set(i, (hints.get(i) || 1) + 1); return render(); }
+  if (t.dataset.rehint){ const i = t.dataset.rehint; if (rehint.has(i)) rehint.delete(i); else rehint.add(i); return render(); }
+  if (t.dataset.sim){ sims.set(t.dataset.sim, { tried: [], ok: false, hint: 0 }); return render(); }
+  if (t.dataset.simclose){ sims.delete(t.dataset.simclose); return render(); }
+  if (t.dataset.shint){ const st = sims.get(t.dataset.shint); if (st) st.hint = Math.min(st.hint + 1, SIM[t.dataset.shint].h.length); return render(); }
+  if (t.dataset.sopt){
+    const st = sims.get(t.dataset.sopt), i = +t.dataset.i;
+    if (st && !st.ok && st.tried.indexOf(i) < 0){ if (i === SIM[t.dataset.sopt].a) st.ok = true; else { st.tried.push(i); st.hint = Math.max(st.hint, 1); } }
+    return render();
+  }
   if (t.dataset.unhint){ hints.delete(t.dataset.unhint); return render(); }
   if (t.dataset.show){ shown.add(t.dataset.show); return render(); }
   if (t.dataset.conq){ conq.add(t.dataset.conq); saveConq(); toast("🎉 Mission conquered! +1 ⭐"); return render(); }
-  if (t.dataset.unconq){ conq.delete(t.dataset.unconq); shown.delete(t.dataset.unconq); hints.delete(t.dataset.unconq); saveConq(); return render(); }
+  if (t.dataset.unconq){ conq.delete(t.dataset.unconq); shown.delete(t.dataset.unconq); hints.delete(t.dataset.unconq); rehint.delete(t.dataset.unconq); sims.delete(t.dataset.unconq); saveConq(); return render(); }
   /* grown-up mode actions */
   if (t.dataset.go){
     F = { a: "all", r: "all", s: "all", sec: "all" };
@@ -894,12 +966,12 @@ document.addEventListener("click", e => {
   if (t.dataset.reveal){ revealed.add(t.dataset.reveal); return render(); }
   if (t.dataset.export){ return csv(); }
   if (t.dataset.reset){ if (confirm("Reset all your edits back to the original results?")){ overrides = {}; save(); render(); } return; }
-  if (t.dataset.resetkid){ if (confirm("Reset her Kid-mode progress (conquered missions)?")){ conq.clear(); hints.clear(); shown.clear(); saveConq(); render(); } return; }
+  if (t.dataset.resetkid){ if (confirm("Reset her Kid-mode progress (conquered missions)?")){ conq.clear(); hints.clear(); shown.clear(); rehint.clear(); sims.clear(); picked.clear(); selecting = false; saveConq(); render(); } return; }
   if (t.classList.contains("q")){ t.classList.toggle("open"); }
 });
 document.addEventListener("change", e => {
   if (e.target.dataset.sel){ F[e.target.dataset.sel] = e.target.value; render(); }
-  if (e.target.dataset.ksel){ K.s = e.target.value; render(); }
+  if (e.target.dataset.ksel){ K.s = e.target.value; picked.clear(); render(); }
 });
 
 render();

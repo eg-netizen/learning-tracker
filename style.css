@@ -131,7 +131,7 @@ select{flex:1;min-width:0;padding:9px 8px;border-radius:10px;border:1px solid va
 .kq.done{border-color:var(--ok)}
 .kq .qtext{font-size:21px;font-weight:800;margin:8px 0 6px}
 .kq .top{display:flex;justify-content:space-between;gap:8px;align-items:center}
-.kq .row2{display:flex;gap:8px;margin-top:12px}
+.kq .row2{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.kq .row2 .kbtn{flex:1 1 140px}
 .kq .row2 .kbtn{font-size:15px;padding:12px 8px}
 .ansbox{margin-top:10px;background:var(--ok-bg);color:var(--ok);border-radius:14px;padding:10px 12px;font-size:18px;font-weight:700}
 .ansbox b{font-size:22px}
@@ -203,3 +203,24 @@ button:focus-visible,select:focus-visible{outline:3px solid var(--accent);outlin
 }
 @media (min-width:700px) and (orientation:landscape){main{max-width:1000px}}
 @media (hover:none){button:active{opacity:.8}}
+
+/* Missions: round filter, multi-select, extra hints, similar question */
+.klabel{font-size:13px;font-weight:800;color:var(--muted);margin:12px 0 6px}
+.selrow{margin:0 0 12px}
+.bulkbar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px;background:var(--card);border:2px solid var(--accent);border-radius:18px;padding:10px;margin-bottom:14px;box-shadow:0 4px 0 var(--line)}
+.bulkbar .cnt{flex:1 0 100%;font-size:15px}
+.bulkbar .kbtn{flex:1 1 140px;font-size:15px;padding:12px 8px}
+.bulkbar .kbtn[disabled]{opacity:.45}
+.kq.picked{border-color:var(--accent);background:var(--bg)}
+.kpick{width:44px;height:44px;border-radius:14px;border:3px solid var(--accent);background:var(--card);color:var(--accent-ink);font:inherit;font-size:24px;font-weight:800;line-height:1}
+.kpick.on{background:var(--accent)}
+.kq .hrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.simbox{margin-top:12px;border:2px dashed var(--accent);border-radius:18px;padding:12px;background:var(--bg)}
+.simbox .simh{color:var(--accent);font-size:14px}
+.simbox .qtext.sq{font-size:19px}
+.sopts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.sopt{font:inherit;font-size:17px;font-weight:700;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px 8px;min-height:52px;overflow-wrap:anywhere}
+.sopt.bad{border-color:var(--bad);background:var(--bad-bg);color:var(--bad);text-decoration:line-through}
+.sopt.good{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.simmsg{font-weight:700;margin-top:6px}
+@media(max-width:360px){.sopts{grid-template-columns:1fr}}
