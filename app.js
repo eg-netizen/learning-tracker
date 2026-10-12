@@ -728,10 +728,31 @@ function nvOpts(it,o){
 }
 const nvList=a=>a.map(x=>'<div>'+esc(x)+'</div>').join("");
 
+/* ---------- progress shown while doing the check-up ---------- */
+function nvDots(n,max){
+  let h='<span class="pdots" aria-hidden="true">';
+  for(let i=0;i<max;i++) h+='<i class="'+(i<n?'on':i===n?'cur':'')+'"></i>';
+  return h+'</span>';
+}
+function nvProgress(run,type){
+  const tp=run.tp[type], kid=mode==="kid", open=NV_TYPES.filter(t=>!run.tp[t.id].done&&t.id!==type);
+  const doneN=NV_TYPES.filter(t=>run.tp[t.id].done).length, next=open[0];
+  const grp=(label,from)=>'<div class="grp"><div class="gl">'+label+'</div><div class="steps">'+NV_TYPES.slice(from,from+3).map(t=>{
+    const d=run.tp[t.id].done, cur=t.id===type;
+    return '<span class="step'+(d?' done':cur?' cur':'')+'" title="'+esc(nvName(t.id))+'">'+(d?'✓':t.em)+'</span>';
+  }).join("")+'</div></div>';
+  const left=open.length;
+  return '<div class="nvprog" role="group" aria-label="Progress: '+doneN+' of 6 puzzle types finished">'
+    +'<div class="nvparts">'+grp(kid?"Part 1":"Part 1 of 2",0)+'<span class="stepgap" title="Break between the parts">☕</span>'+grp(kid?"Part 2":"Part 2 of 2",3)+'</div>'
+    +'<div class="nvline"><span>'+(kid?"Puzzle ":"Puzzle ")+'<b>'+(tp.n+1)+'</b> of up to 7 in this section</span>'+nvDots(tp.n,7)+'</div>'
+    +'<div class="small muted">'+(kid?"It can finish sooner - that is fine! ":"The section can end early, so this is a maximum. ")
+    +(next?'Up next: '+next.em+' '+esc(nvName(next.id))+(left>1?' (then '+(left-1)+' more)':''):'This is the last section!')+'</div></div>';
+}
+
 /* ---------- assessment screens ---------- */
-function nvIntroScreen(type){
+function nvIntroScreen(type,run){
   const T=nvT(type), idx=NV_TYPES.findIndex(t=>t.id===type), ex=nvGen(type,1,9100+idx);
-  return topbar()+'<h1>'+T.em+' '+nvName(type)+'</h1><div class="kcard"><b>How it works</b><div class="tip" style="margin-top:6px">'+nvList(T.how)+'</div>'
+  return topbar()+'<h1>'+T.em+' '+nvName(type)+'</h1>'+(run?nvProgress(run,type):'')+'<div class="kcard"><b>How it works</b><div class="tip" style="margin-top:6px">'+nvList(T.how)+'</div>'
     +'<div class="nvprompt" style="margin-top:12px">Example</div><div class="small muted">'+esc(T.prompt)+'</div>'
     +(ex.stem?'<div class="nvstem">'+ex.stem+'</div>':'')+nvOpts(ex,{reveal:true,pick:null})
     +'<div class="tip what" style="border-left-color:var(--ok)"><b style="color:var(--ok)">✅ The answer is '+"ABCDE"[ex.ans]+'</b>'+nvList(ex.why)+'</div>'
@@ -745,7 +766,7 @@ function nvBreakScreen(){
 }
 function nvItemScreen(run,type){
   const T=nvT(type), cur=nvCurItem(run,type), it=cur.item, part=NV_TYPES.findIndex(x=>x.id===type)<3?1:2;
-  return topbar()+'<div class="nvhead">Part '+part+' of 2 &middot; '+nvName(type)+' '+T.em+'</div>'
+  return topbar()+'<div class="nvhead">Part '+part+' of 2 &middot; '+nvName(type)+' '+T.em+'</div>'+nvProgress(run,type)
     +'<div class="kcard"><div class="nvprompt">'+esc(T.prompt)+'</div>'+(it.stem?'<div class="nvstem">'+it.stem+'</div>':'')
     +nvOpts(it,{sel:nvUI.pick,interactive:true})
     +'<div class="nvbtns"><button class="kbtn ghost" data-nv="unsure">🤔 I\'m not sure</button><button class="kbtn" data-nv="confirm"'+(nvUI.pick==null?' disabled':'')+'>✅ That\'s my answer</button></div></div>'
@@ -834,7 +855,7 @@ function nvPracticeView(){
       +'<button class="kbtn" data-nv="practice" data-v="'+p.type+'">🔁 Another round</button><div style="height:10px"></div><button class="kbtn ghost" data-nv="pend">🗺️ Back to my map</button></div>';
   }
   const it=nvPracticeItem(p);
-  let h=topbar()+'<div class="nvhead">Practice &middot; '+nvName(p.type)+' '+T.em+' &middot; Level '+p.lvl+' ('+NVLTXT[p.lvl]+') &middot; puzzle '+(p.n+1)+' of 6</div>'
+  let h=topbar()+'<div class="nvhead">Practice &middot; '+nvName(p.type)+' '+T.em+' &middot; Level '+p.lvl+' ('+NVLTXT[p.lvl]+') &middot; puzzle '+(p.n+1)+' of 6</div><div class="nvprog"><div class="nvline"><span>Puzzle <b>'+(p.n+1)+'</b> of 6</span>'+nvDots(p.n,6)+'</div></div>'
     +'<div class="kcard"><div class="nvprompt">'+esc(T.prompt)+'</div>'+(it.stem?'<div class="nvstem">'+it.stem+'</div>':'')
     +nvOpts(it,{sel:p.pick,interactive:!p.fb,reveal:p.fb,pick:p.pick});
   if(p.fb){
@@ -883,7 +904,7 @@ function nvView(){
   if(nvUI.screen==="run"){
     const run=nvRun(); if(!run){nvUI.screen="home";return nvHome();}
     const st=nvStep(run);
-    if(st.screen==="intro")return nvIntroScreen(st.type);
+    if(st.screen==="intro")return nvIntroScreen(st.type,run);
     if(st.screen==="break")return nvBreakScreen();
     if(st.screen==="item")return nvItemScreen(run,st.type);
     nvUI.screen="home";
